@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { Table, Button, Input, Space, Tag, Modal, Form, Select, message } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Table, Button, Input, Space, Tag, Modal, Form, Select, message, Card, Row, Col } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { studentsData as initialData } from '../data/students';
+import { teachersData } from '../data/teachers';
+import { feesData } from '../data/fees';
+import { attendanceData } from '../data/attendance';
+import { teacherClassCards } from '../data/teacherClassCards';
 
 const { Option } = Select;
 
@@ -11,6 +15,23 @@ const Students = () => {
     const [searchText, setSearchText] = useState('');
     const [editingStudent, setEditingStudent] = useState(null);
     const [form] = Form.useForm();
+
+    const classOptions = useMemo(() => {
+        const fromStudents = initialData.map((student) => student.classLabel);
+        const fromClasses = teacherClassCards.map((item) => item.label);
+        return Array.from(new Set([...fromStudents, ...fromClasses]));
+    }, []);
+
+    const totalStudents = students.length;
+    const totalTeachers = teachersData.length;
+    const totalCollected = feesData
+        .filter((item) => item.status === 'Paid')
+        .reduce((sum, item) => sum + item.amount, 0);
+    const totalPending = feesData
+        .filter((item) => item.status === 'Pending')
+        .reduce((sum, item) => sum + item.amount, 0);
+    const totalPresent = attendanceData.filter((item) => item.status === 'Present').length;
+    const totalAbsent = attendanceData.filter((item) => item.status === 'Absent').length;
 
     const columns = [
         {
@@ -96,14 +117,12 @@ const Students = () => {
 
     const handleSave = (values) => {
         if (editingStudent) {
-            // Update existing
             const updatedStudents = students.map((s) =>
                 s.key === editingStudent.key ? { ...s, ...values } : s
             );
             setStudents(updatedStudents);
             message.success('Student updated successfully');
         } else {
-            // Add new
             const newStudent = {
                 key: String(students.length + 1),
                 id: `STU00${students.length + 1}`,
@@ -114,6 +133,7 @@ const Students = () => {
             setStudents([...students, newStudent]);
             message.success('Student added successfully');
         }
+
         setIsModalVisible(false);
         setEditingStudent(null);
         form.resetFields();
@@ -127,6 +147,62 @@ const Students = () => {
 
     return (
         <div>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col xs={24} md={12} lg={8}>
+                    <Card hoverable title="Total students" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalStudents}</div>
+                    </Card>
+                </Col>
+                <Col xs={24} md={12} lg={8}>
+                    <Card hoverable title="Total teachers" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalTeachers}</div>
+                    </Card>
+                </Col>
+                <Col xs={24} md={12} lg={8}>
+                    <Card hoverable title="Collected fee" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>${totalCollected}</div>
+                    </Card>
+                </Col>
+                <Col xs={24} md={12} lg={8}>
+                    <Card hoverable title="Pending fee" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>${totalPending}</div>
+                    </Card>
+                </Col>
+                <Col xs={24} md={12} lg={8}>
+                    <Card hoverable title="Total present" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalPresent}</div>
+                    </Card>
+                </Col>
+                <Col xs={24} md={12} lg={8}>
+                    <Card hoverable title="Total absent" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalAbsent}</div>
+                    </Card>
+                </Col>
+            </Row>
+
+            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+                <Col>
+                    <Button type="default" onClick={() => setIsModalVisible(true)}>
+                        Add Student
+                    </Button>
+                </Col>
+                <Col>
+                    <Button type="default" onClick={() => message.info('Add Teacher flow not yet implemented')}>
+                        Add Teacher
+                    </Button>
+                </Col>
+                <Col>
+                    <Button type="default" onClick={() => message.info('Fee section available in sidebar')}>
+                        Fee Section
+                    </Button>
+                </Col>
+                <Col>
+                    <Button type="default" onClick={() => message.info('Timetable feature available in sidebar')}>
+                        Add Timetable
+                    </Button>
+                </Col>
+            </Row>
+
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
                 <Input
                     placeholder="Search students..."
@@ -192,9 +268,15 @@ const Students = () => {
                     <Form.Item
                         name="classLabel"
                         label="Class label"
-                        rules={[{ required: true, message: 'Please enter class label' }]}
+                        rules={[{ required: true, message: 'Please select a class' }]}
                     >
-                        <Input placeholder="e.g. CS-101" />
+                        <Select placeholder="Choose a class">
+                            {classOptions.map((label) => (
+                                <Option key={label} value={label}>
+                                    {label}
+                                </Option>
+                            ))}
+                        </Select>
                     </Form.Item>
                     <Form.Item
                         name="contact"
