@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Card, Col, Row, Space, Statistic, Table, Typography } from 'antd';
+import { Button, Card, Col, Input, Row, Space, Statistic, Table, Typography } from 'antd';
 import { useParams } from 'react-router-dom';
 import { getTeacherClassCard } from '../data/teacherClassCards';
 import { getStudentsForTeacherClass } from '../data/teacherClassStudents';
@@ -25,6 +25,15 @@ const TeacherClassAttendance = () => {
         });
         return init;
     });
+    const [searchText, setSearchText] = useState('');
+    const filteredStudents = useMemo(() => {
+        const query = searchText.trim().toLowerCase();
+        if (!query) return students;
+        return students.filter((student) =>
+            student.name.toLowerCase().includes(query) ||
+            student.rollNo.toLowerCase().includes(query)
+        );
+    }, [searchText, students]);
 
     if (!cls) {
         return (
@@ -95,31 +104,39 @@ const TeacherClassAttendance = () => {
         <div>
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} md={8}>
-                    <Card style={{ borderRadius: 12, minHeight: 120 }}>
+                    <Card className="hover-card" style={{ borderRadius: 12, minHeight: 120 }}>
                         <Statistic title="Total Students" value={students.length || cls.total} />
                     </Card>
                 </Col>
                 <Col xs={24} md={8}>
-                    <Card style={{ borderRadius: 12, minHeight: 120 }}>
+                    <Card className="hover-card" style={{ borderRadius: 12, minHeight: 120 }}>
                         <Statistic title="Present" value={totals.present} valueStyle={{ color: '#389e0d' }} />
                     </Card>
                 </Col>
                 <Col xs={24} md={8}>
-                    <Card style={{ borderRadius: 12, minHeight: 120 }}>
+                    <Card className="hover-card" style={{ borderRadius: 12, minHeight: 120 }}>
                         <Statistic title="Absent" value={totals.absent} valueStyle={{ color: '#cf1322' }} />
                     </Card>
                 </Col>
             </Row>
 
-            <Card style={{ borderRadius: 14, padding: 20 }}>
-                <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                    <div>
+            <Card className="hover-card" style={{ borderRadius: 14, padding: 20 }}>
+                <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0, flex: '1 1 320px' }}>
                         <Title level={4} style={{ marginBottom: 4 }}>
                             {cls.label} Students
                         </Title>
                         <Text type="secondary">Attendance for today only.</Text>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ minWidth: 260, marginTop: 12 }}>
+                        <Input
+                            placeholder="Search by roll or student name"
+                            allowClear
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                        />
+                    </div>
+                    <div style={{ textAlign: 'right', whiteSpace: 'nowrap', marginTop: 12 }}>
                         <Text strong>Attendance date</Text>
                         <br />
                         <Text>{todayLabel}</Text>
@@ -129,8 +146,8 @@ const TeacherClassAttendance = () => {
                 <Table
                     rowKey="key"
                     columns={columns}
-                    dataSource={students}
-                    pagination={false}
+                    dataSource={filteredStudents}
+                    pagination={{ pageSize: 10 }}
                     bordered
                 />
             </Card>

@@ -23,6 +23,7 @@ const TeacherClassResults = () => {
     const [results, setResults] = useState(initialResults);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingResult, setEditingResult] = useState(null);
+    const [searchText, setSearchText] = useState('');
     const [form] = Form.useForm();
 
     const { classKey } = useParams();
@@ -39,13 +40,33 @@ const TeacherClassResults = () => {
 
     const allowedStudents = studentsData.filter((s) => s.program === mappedProgram);
     const allowedIds = new Set(allowedStudents.map((s) => s.id));
+    const rollMap = useMemo(
+        () => new Map(studentsData.map((s) => [s.id, s.rollNumber])),
+        []
+    );
 
+    const searchQuery = searchText.trim().toLowerCase();
     const rows = useMemo(
-        () => results.filter((r) => allowedIds.has(r.studentId)),
-        [results, allowedIds]
+        () =>
+            results
+                .filter((r) => allowedIds.has(r.studentId))
+                .map((r) => ({ ...r, rollNo: rollMap.get(r.studentId) || '' }))
+                .filter((r) => {
+                    if (!searchQuery) {
+                        return true;
+                    }
+                    return (
+                        r.studentName.toLowerCase().includes(searchQuery) ||
+                        r.subject.toLowerCase().includes(searchQuery) ||
+                        r.term.toLowerCase().includes(searchQuery) ||
+                        r.rollNo.toLowerCase().includes(searchQuery)
+                    );
+                }),
+        [results, allowedIds, rollMap, searchQuery]
     );
 
     const columns = [
+        { title: 'Roll No', dataIndex: 'rollNo', key: 'rollNo' },
         { title: 'Student', dataIndex: 'studentName', key: 'studentName' },
         { title: 'Subject', dataIndex: 'subject', key: 'subject' },
         { title: 'Marks', dataIndex: 'marks', key: 'marks' },
@@ -105,15 +126,25 @@ const TeacherClassResults = () => {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Title level={3} style={{ marginBottom: 10 }}>
-                    Results: {classCard?.label || classKey}
-                </Title>
-                <Text type="secondary">Teacher editable result sheet for this class.</Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
+                <div>
+                    <Title level={3} style={{ marginBottom: 10 }}>
+                        Results: {classCard?.label || classKey}
+                    </Title>
+                    <Text type="secondary">Teacher editable result sheet for this class.</Text>
+                </div>
+                <div style={{ minWidth: 260, flex: '1 1 auto', maxWidth: 360 }}>
+                    <Input
+                        placeholder="Search student, subject or term"
+                        allowClear
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                    />
+                </div>
             </div>
 
             <Card style={{ marginTop: 16 }} bordered>
-                <Table rowKey="key" columns={columns} dataSource={rows} pagination={false} />
+                <Table rowKey="key" columns={columns} dataSource={rows} pagination={{ pageSize: 10 }} />
             </Card>
 
             <Modal
