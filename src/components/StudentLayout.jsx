@@ -52,7 +52,19 @@ const StudentLayout = () => {
     return (
         <Layout style={{ minHeight: '100vh' }}>
             <Sider trigger={null} collapsible collapsed={collapsed}>
-                <div className="demo-logo-vertical" style={{ height: 32, margin: 16, background: 'rgba(255, 255, 255, 0.2)', borderRadius: 6 }} />
+                <div
+                    style={{
+                        margin: 16,
+                        padding: '12px 14px',
+                        background: 'rgba(255, 255, 255, 0.12)',
+                        borderRadius: 8,
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: 14,
+                    }}
+                >
+                    {user?.username || 'Student'}
+                </div>
                 <Menu
                     theme="dark"
                     mode="inline"

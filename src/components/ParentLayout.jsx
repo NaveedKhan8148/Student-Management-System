@@ -54,14 +54,15 @@ const ParentLayout = () => {
                 <div
                     style={{
                         margin: 16,
-                        padding: '8px 12px',
+                        padding: '12px 14px',
                         background: 'rgba(255,255,255,0.12)',
                         borderRadius: 8,
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: 14,
                     }}
                 >
-                    <Text strong style={{ color: '#fff', fontSize: 12 }}>
-                        Parent (read-only)
-                    </Text>
+                    {user?.username || 'Parent'}
                 </div>
                 <Menu
                     theme="dark"

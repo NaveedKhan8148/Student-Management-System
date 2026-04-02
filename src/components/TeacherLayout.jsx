@@ -95,12 +95,17 @@ const TeacherLayout = () => {
             <Sider trigger={null} collapsible collapsed={collapsed}>
                 <div
                     style={{
-                        height: 32,
                         margin: 16,
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        borderRadius: 6,
+                        padding: '12px 14px',
+                        background: 'rgba(255, 255, 255, 0.12)',
+                        borderRadius: 8,
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: 14,
                     }}
-                />
+                >
+                    {user?.username || 'Teacher'}
+                </div>
                 <Menu
                     theme="dark"
                     mode="inline"

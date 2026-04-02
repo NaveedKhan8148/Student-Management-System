@@ -67,7 +67,7 @@ const MainLayout = () => {
                         fontSize: 13,
                     }}
                 >
-                    Admin
+                    {user?.username || 'Admin'}
                 </div>
                 <Menu
                     theme="dark"
