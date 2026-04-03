@@ -13,10 +13,14 @@ const ParentAttendance = () => {
         [child]
     );
 
-    const totalPresent = rows.filter((r) => r.status === 'Present').length;
-    const totalAbsent = rows.filter((r) => r.status === 'Absent').length;
-    const totalLate = rows.filter((r) => r.status === 'Late').length;
-    const pct = rows.length ? ((totalPresent + totalLate) / rows.length) * 100 : 0;
+    const normalizedRows = rows.map((r) => ({
+        ...r,
+        status: r.status === 'Late' ? 'Absent' : r.status,
+    }));
+
+    const totalPresent = normalizedRows.filter((r) => r.status === 'Present').length;
+    const totalAbsent = normalizedRows.filter((r) => r.status === 'Absent').length;
+    const pct = normalizedRows.length ? (totalPresent / normalizedRows.length) * 100 : 0;
 
     const columns = [
         { title: 'Date', dataIndex: 'date', key: 'date' },
@@ -49,13 +53,8 @@ const ParentAttendance = () => {
                         <Statistic title="Absent" value={totalAbsent} prefix={<CloseCircleOutlined />} valueStyle={{ color: '#cf1322' }} />
                     </Card>
                 </Col>
-                <Col span={8}>
-                    <Card className="hover-card">
-                        <Statistic title="Late" value={totalLate} prefix={<ClockCircleOutlined />} valueStyle={{ color: '#faad14' }} />
-                    </Card>
-                </Col>
             </Row>
-            <Table style={{ marginTop: 24 }} rowKey="key" columns={columns} dataSource={rows} />
+            <Table style={{ marginTop: 24 }} rowKey="key" columns={columns} dataSource={normalizedRows} />
         </div>
     );
 };

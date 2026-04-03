@@ -12,8 +12,9 @@ const { Title, Text } = Typography;
 function buildAlerts(childId) {
     const alerts = [];
     const records = attendanceData.filter((a) => a.studentId === childId);
-    const presentLike = records.filter((r) => r.status === 'Present' || r.status === 'Late').length;
-    const pct = records.length ? (presentLike / records.length) * 100 : 100;
+    const normalizedRecords = records.map((r) => ({ ...r, status: r.status === 'Late' ? 'Absent' : r.status }));
+    const presentLike = normalizedRecords.filter((r) => r.status === 'Present').length;
+    const pct = normalizedRecords.length ? (presentLike / normalizedRecords.length) * 100 : 100;
     if (pct < 75) {
         alerts.push({
             type: 'warning',
@@ -29,7 +30,7 @@ function buildAlerts(childId) {
                 alerts.push({
                     type: 'error',
                     title: 'Fee overdue',
-                    description: `${f.type} ($${f.amount}) was due on ${f.dueDate}.`,
+                    description: `${f.type} (Rs ${f.amount}) was due on ${f.dueDate}.`,
                 });
             }
         });

@@ -57,7 +57,7 @@ const Attendance = () => {
         >
           <Radio.Button value="Present" style={{ color: 'green' }}>Present</Radio.Button>
           <Radio.Button value="Absent" style={{ color: 'red' }}>Absent</Radio.Button>
-          <Radio.Button value="Late" style={{ color: 'orange' }}>Late</Radio.Button>
+
         </Radio.Group>
       ),
     },
@@ -65,11 +65,11 @@ const Attendance = () => {
 
   // Mock data for the chart
   const chartData = [
-    { name: 'Mon', Present: 40, Absent: 5, Late: 5 },
-    { name: 'Tue', Present: 42, Absent: 3, Late: 5 },
-    { name: 'Wed', Present: 38, Absent: 8, Late: 4 },
-    { name: 'Thu', Present: 45, Absent: 2, Late: 3 },
-    { name: 'Fri', Present: 41, Absent: 4, Late: 5 },
+    { name: 'Mon', Present: 40, Absent: 5 },
+    { name: 'Tue', Present: 42, Absent: 3 },
+    { name: 'Wed', Present: 38, Absent: 8 },
+    { name: 'Thu', Present: 45, Absent: 2 },
+    { name: 'Fri', Present: 41, Absent: 4 },
   ];
 
   const items = [
@@ -133,10 +133,11 @@ const Attendance = () => {
             <Col span={8}>
               <Card className="hover-card">
                 <Statistic
-                  title="Late Arrivals (This Month)"
-                  value={5}
-                  valueStyle={{ color: '#faad14' }}
-                  prefix={<ClockCircleOutlined />}
+                  title="Present (This Month)"
+                  value={85}
+                  valueStyle={{ color: '#52c41a' }}
+                  prefix={<CheckCircleOutlined />}
+                  suffix="%"
                 />
               </Card>
             </Col>
@@ -151,7 +152,6 @@ const Attendance = () => {
                 <Legend />
                 <Bar dataKey="Present" fill="#52c41a" />
                 <Bar dataKey="Absent" fill="#ff4d4f" />
-                <Bar dataKey="Late" fill="#faad14" />
               </BarChart>
             </ResponsiveContainer>
           </Card>

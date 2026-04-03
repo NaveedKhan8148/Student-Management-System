@@ -51,7 +51,6 @@ const TeacherAttendance = () => {
                 >
                     <Radio.Button value="Present">Present</Radio.Button>
                     <Radio.Button value="Absent">Absent</Radio.Button>
-                    <Radio.Button value="Late">Late</Radio.Button>
                 </Radio.Group>
             ),
         },

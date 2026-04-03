@@ -17,11 +17,15 @@ const StudentAttendance = () => {
         }
     }, [user]);
 
-    const totalPresent = myAttendance.filter(r => r.status === 'Present').length;
-    const totalAbsent = myAttendance.filter(r => r.status === 'Absent').length;
-    const totalLate = myAttendance.filter(r => r.status === 'Late').length;
-    const attendancePercentage = myAttendance.length > 0
-        ? ((totalPresent + totalLate) / myAttendance.length) * 100
+    const normalizedAttendance = myAttendance.map((r) => ({
+        ...r,
+        status: r.status === 'Late' ? 'Absent' : r.status,
+    }));
+
+    const totalPresent = normalizedAttendance.filter(r => r.status === 'Present').length;
+    const totalAbsent = normalizedAttendance.filter(r => r.status === 'Absent').length;
+    const attendancePercentage = normalizedAttendance.length > 0
+        ? (totalPresent / normalizedAttendance.length) * 100
         : 0;
 
     const columns = [
@@ -40,9 +44,7 @@ const StudentAttendance = () => {
             dataIndex: 'status',
             key: 'status',
             render: (status) => {
-                let color = 'green';
-                if (status === 'Absent') color = 'red';
-                if (status === 'Late') color = 'orange';
+                const color = status === 'Absent' ? 'red' : 'green';
                 return <Tag color={color}>{status}</Tag>;
             },
         },
@@ -78,16 +80,16 @@ const StudentAttendance = () => {
                 <Col span={8}>
                     <Card className="hover-card">
                         <Statistic
-                            title="Total Late"
-                            value={totalLate}
-                            valueStyle={{ color: '#faad14' }}
-                            prefix={<ClockCircleOutlined />}
+                            title="Total Absent"
+                            value={totalAbsent}
+                            valueStyle={{ color: '#cf1322' }}
+                            prefix={<CloseCircleOutlined />}
                         />
                     </Card>
                 </Col>
             </Row>
 
-            <Table columns={columns} dataSource={myAttendance} rowKey="key" />
+            <Table columns={columns} dataSource={normalizedAttendance} rowKey="key" />
         </div>
     );
 };
