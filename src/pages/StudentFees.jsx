@@ -92,7 +92,7 @@ const StudentFees = () => {
 
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={12}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Total Paid"
                             value={totalPaid}
@@ -103,7 +103,7 @@ const StudentFees = () => {
                     </Card>
                 </Col>
                 <Col span={12}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Pending Dues"
                             value={totalPending}

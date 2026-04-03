@@ -120,7 +120,7 @@ const Fees = () => {
             />
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Total Collected"
                             value={totalCollected}
@@ -131,7 +131,7 @@ const Fees = () => {
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Pending Dues"
                             value={totalPending}

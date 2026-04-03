@@ -36,7 +36,7 @@ const Dashboard = () => {
 
             <Row gutter={[16, 16]}>
                 <Col xs={24} lg={12}>
-                    <Card title="Attendance trends by class">
+                    <Card className="hover-card" title="Attendance trends by class">
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={attendanceTrendByClass}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -53,7 +53,7 @@ const Dashboard = () => {
                     </Card>
                 </Col>
                 <Col xs={24} lg={12}>
-                    <Card title="Result comparison across semesters">
+                    <Card className="hover-card" title="Result comparison across semesters">
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={resultComparisonSemesters}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -69,7 +69,7 @@ const Dashboard = () => {
                     </Card>
                 </Col>
                 <Col xs={24} lg={12}>
-                    <Card title="Fee collection vs pending dues">
+                    <Card className="hover-card" title="Fee collection vs pending dues">
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={feeCollectionVsPending}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -84,7 +84,7 @@ const Dashboard = () => {
                     </Card>
                 </Col>
                 <Col xs={24} lg={12}>
-                    <Card title="Performance distribution">
+                    <Card className="hover-card" title="Performance distribution">
                         <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                                 <Pie

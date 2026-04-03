@@ -35,12 +35,12 @@ const ParentFees = () => {
             <Text type="secondary">Read-only — dues and payments</Text>
             <Row gutter={16} style={{ marginTop: 16 }}>
                 <Col span={12}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic title="Total paid" value={paid} prefix={<DollarOutlined />} valueStyle={{ color: '#3f8600' }} />
                     </Card>
                 </Col>
                 <Col span={12}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic title="Pending" value={pending} prefix={<HistoryOutlined />} valueStyle={{ color: '#cf1322' }} />
                     </Card>
                 </Col>

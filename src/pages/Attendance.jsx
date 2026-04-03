@@ -91,7 +91,7 @@ const Attendance = () => {
               Save Attendance
             </Button>
           </div>
-          <Card>
+          <Card className="hover-card">
             <Table
               dataSource={studentsData}
               columns={columns}
@@ -109,7 +109,7 @@ const Attendance = () => {
         <div>
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={8}>
-              <Card>
+              <Card className="hover-card">
                 <Statistic
                   title="Average Attendance"
                   value={85}
@@ -121,7 +121,7 @@ const Attendance = () => {
               </Card>
             </Col>
             <Col span={8}>
-              <Card>
+              <Card className="hover-card">
                 <Statistic
                   title="Total Absences (This Month)"
                   value={12}
@@ -131,7 +131,7 @@ const Attendance = () => {
               </Card>
             </Col>
             <Col span={8}>
-              <Card>
+              <Card className="hover-card">
                 <Statistic
                   title="Late Arrivals (This Month)"
                   value={5}
@@ -141,7 +141,7 @@ const Attendance = () => {
               </Card>
             </Col>
           </Row>
-          <Card title="Weekly Attendance Trends">
+          <Card className="hover-card" title="Weekly Attendance Trends">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />

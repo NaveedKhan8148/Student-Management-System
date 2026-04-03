@@ -54,7 +54,7 @@ const StudentAttendance = () => {
 
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Attendance %"
                             value={attendancePercentage}
@@ -66,7 +66,7 @@ const StudentAttendance = () => {
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Total Absent"
                             value={totalAbsent}
@@ -76,7 +76,7 @@ const StudentAttendance = () => {
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic
                             title="Total Late"
                             value={totalLate}

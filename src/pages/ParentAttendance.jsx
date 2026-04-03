@@ -40,17 +40,17 @@ const ParentAttendance = () => {
             <Text type="secondary">Read-only — {child.name}</Text>
             <Row gutter={16} style={{ marginTop: 16 }}>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic title="Attendance %" value={pct} precision={1} suffix="%" prefix={<CheckCircleOutlined />} />
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic title="Absent" value={totalAbsent} prefix={<CloseCircleOutlined />} valueStyle={{ color: '#cf1322' }} />
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card>
+                    <Card className="hover-card">
                         <Statistic title="Late" value={totalLate} prefix={<ClockCircleOutlined />} valueStyle={{ color: '#faad14' }} />
                     </Card>
                 </Col>

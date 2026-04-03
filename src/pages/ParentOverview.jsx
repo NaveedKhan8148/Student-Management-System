@@ -76,7 +76,7 @@ const ParentOverview = () => {
 
             <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
                 <Col xs={24} lg={14}>
-                    <Card title="Automatic alerts">
+                    <Card className="hover-card" title="Automatic alerts">
                         {alerts.length === 0 ? (
                             <Alert type="success" message="No active alerts based on current static data." showIcon />
                         ) : (
@@ -92,7 +92,7 @@ const ParentOverview = () => {
                     </Card>
                 </Col>
                 <Col xs={24} lg={10}>
-                    <Card title="Transparency & accountability">
+                    <Card className="hover-card" title="Transparency & accountability">
                         <p style={{ margin: 0, color: '#595959' }}>
                             This module mirrors institutional data (attendance, results, fees, timetable) so parents can
                             collaborate with the school without editing records.

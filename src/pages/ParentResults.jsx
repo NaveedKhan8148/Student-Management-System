@@ -27,7 +27,7 @@ const ParentResults = () => {
         <div>
             <Title level={2}>Results & grades</Title>
             <Text type="secondary">Read-only — {child.name}</Text>
-            <Card style={{ marginTop: 16 }}>
+            <Card className="hover-card" style={{ marginTop: 16 }}>
                 <Table rowKey="key" columns={columns} dataSource={rows} pagination={false} />
             </Card>
         </div>
