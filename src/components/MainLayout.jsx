@@ -45,6 +45,7 @@ const MainLayout = () => {
     const items = [
         { key: '/dashboard', icon: <DashboardOutlined />, label: 'Analytics dashboard' },
         { key: '/students', icon: <TeamOutlined />, label: 'Students' },
+        { key: '/teachers', icon: <TeamOutlined />, label: 'Teachers' },
         { key: '/attendance', icon: <FileDoneOutlined />, label: 'Attendance' },
         { key: '/fees', icon: <DollarOutlined />, label: 'Fees' },
         { key: '/timetable', icon: <CalendarOutlined />, label: 'Timetable' },

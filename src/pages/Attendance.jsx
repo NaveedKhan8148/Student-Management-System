@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, DatePicker, Radio, message, Card, Typography, Space, Tabs, Row, Col, Statistic } from 'antd';
+import { Table, Button, DatePicker, Radio, message, Card, Typography, Space, Tabs, Row, Col, Statistic, Input } from 'antd';
 import { SaveOutlined, PieChartOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
@@ -10,6 +10,7 @@ const { Title } = Typography;
 const Attendance = () => {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [attendance, setAttendance] = useState({});
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     const initialAttendance = {};
@@ -72,6 +73,14 @@ const Attendance = () => {
     { name: 'Fri', Present: 41, Absent: 4 },
   ];
 
+  // Filter students based on search text
+  const filteredStudents = studentsData.filter(student => {
+    const search = searchText.trim().toLowerCase();
+    return !search || [student.id, student.name, student.program].some(field =>
+      field?.toString().toLowerCase().includes(search)
+    );
+  });
+
   const items = [
     {
       key: '1',
@@ -91,11 +100,26 @@ const Attendance = () => {
               Save Attendance
             </Button>
           </div>
+          <div style={{ marginBottom: 16 }}>
+            <Input.Search
+              placeholder="Search by ID, name, or program"
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onSearch={(value) => setSearchText(value)}
+              style={{ width: 300 }}
+            />
+          </div>
           <Card className="hover-card">
             <Table
-              dataSource={studentsData}
+              dataSource={filteredStudents}
               columns={columns}
-              pagination={false}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`,
+              }}
               rowKey="id"
             />
           </Card>

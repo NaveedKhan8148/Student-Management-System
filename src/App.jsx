@@ -9,6 +9,7 @@ import ParentLayout from './components/ParentLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
+import Teachers from './pages/Teachers';
 import Attendance from './pages/Attendance';
 import Fees from './pages/Fees';
 import Timetable from './pages/Timetable';
@@ -64,6 +65,7 @@ function App() {
                         <Route index element={<RoleBasedRedirect />} />
                         <Route path="dashboard" element={<Dashboard />} />
                         <Route path="students" element={<Students />} />
+                        <Route path="teachers" element={<Teachers />} />
                         <Route path="attendance" element={<Attendance />} />
                         <Route path="fees" element={<Fees />} />
                         <Route path="timetable" element={<Timetable />} />

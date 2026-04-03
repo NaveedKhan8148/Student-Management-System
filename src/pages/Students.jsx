@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Table, Button, Input, Space, Tag, Modal, Form, Select, message, Card, Row, Col } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { studentsData as initialData } from '../data/students';
-import { teachersData } from '../data/teachers';
 import { feesData } from '../data/fees';
 import { attendanceData } from '../data/attendance';
 import { teacherClassCards } from '../data/teacherClassCards';
@@ -23,7 +22,6 @@ const Students = () => {
     }, []);
 
     const totalStudents = students.length;
-    const totalTeachers = teachersData.length;
     const totalCollected = feesData
         .filter((item) => item.status === 'Paid')
         .reduce((sum, item) => sum + item.amount, 0);
@@ -154,11 +152,6 @@ const Students = () => {
                     </Card>
                 </Col>
                 <Col xs={24} md={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Total teachers" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalTeachers}</div>
-                    </Card>
-                </Col>
-                <Col xs={24} md={12} lg={8}>
                     <Card hoverable className="hover-card" title="Collected fee" bordered>
                         <div style={{ fontSize: 28, fontWeight: 700 }}>Rs {totalCollected}</div>
                     </Card>
@@ -184,11 +177,6 @@ const Students = () => {
                 <Col>
                     <Button type="default" onClick={() => setIsModalVisible(true)}>
                         Add Student
-                    </Button>
-                </Col>
-                <Col>
-                    <Button type="default" onClick={() => message.info('Add Teacher flow not yet implemented')}>
-                        Add Teacher
                     </Button>
                 </Col>
                 <Col>

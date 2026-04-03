@@ -15,6 +15,12 @@ const Results = () => {
 
     const columns = [
         {
+            title: 'Roll No',
+            dataIndex: 'studentId',
+            key: 'rollNumber',
+            render: (studentId) => studentsData.find((s) => s.id === studentId)?.rollNumber || '—',
+        },
+        {
             title: 'Student Name',
             dataIndex: 'studentName',
             key: 'studentName',
@@ -79,6 +85,7 @@ const Results = () => {
             grade: grade,
             term: values.term,
             assessment: 'Composite',
+            rollNumber: match?.rollNumber || '—',
         };
         setResults([...results, newResult]);
         setIsModalVisible(false);
