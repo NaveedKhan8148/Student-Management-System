@@ -24,13 +24,13 @@ const TeacherClasses = () => {
                     <Col key={cls.key} xs={24} sm={12} md={12} lg={8} xl={6}>
                         <Card
                             hoverable
+                            className="hover-card"
                             onClick={() => navigate(`/teacher/classes/${cls.key}/attendance`)}
                             bodyStyle={{ padding: 20 }}
                             style={{
                                 borderRadius: 18,
                                 boxShadow: '0 12px 24px rgba(0,0,0,0.08)',
                                 minHeight: 200,
-                                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                             }}
                             headStyle={{
                                 background: '#fafafa',
