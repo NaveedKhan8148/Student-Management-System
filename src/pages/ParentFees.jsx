@@ -16,7 +16,7 @@ const ParentFees = () => {
     const columns = [
         { title: 'Transaction', dataIndex: 'transactionId', key: 'transactionId' },
         { title: 'Type', dataIndex: 'type', key: 'type' },
-        { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (n) => `$${n}` },
+        { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (n) => `Rs ${n}` },
         { title: 'Due', dataIndex: 'dueDate', key: 'dueDate' },
         { title: 'Paid on', dataIndex: 'date', key: 'date', render: (d) => d || '—' },
         {

@@ -149,23 +149,23 @@ const Students = () => {
         <div>
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} md={12} lg={8}>
-                    <Card hoverable title="Total students" bordered>
+                    <Card hoverable className="hover-card" title="Total students" bordered>
                         <div style={{ fontSize: 28, fontWeight: 700 }}>{totalStudents}</div>
                     </Card>
                 </Col>
                 <Col xs={24} md={12} lg={8}>
-                    <Card hoverable title="Total teachers" bordered>
+                    <Card hoverable className="hover-card" title="Total teachers" bordered>
                         <div style={{ fontSize: 28, fontWeight: 700 }}>{totalTeachers}</div>
                     </Card>
                 </Col>
                 <Col xs={24} md={12} lg={8}>
-                    <Card hoverable title="Collected fee" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>${totalCollected}</div>
+                    <Card hoverable className="hover-card" title="Collected fee" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>Rs {totalCollected}</div>
                     </Card>
                 </Col>
                 <Col xs={24} md={12} lg={8}>
-                    <Card hoverable title="Pending fee" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>${totalPending}</div>
+                    <Card hoverable className="hover-card" title="Pending fee" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>Rs {totalPending}</div>
                     </Card>
                 </Col>
                 <Col xs={24} md={12} lg={8}>
