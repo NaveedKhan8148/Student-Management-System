@@ -55,15 +55,15 @@ function App() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
 
+                    <Route path="/" element={<RoleBasedRedirect />} />
+
                     <Route
-                        path="/"
                         element={
                             <ProtectedRoute allowedRoles={['admin']}>
                                 <MainLayout />
                             </ProtectedRoute>
                         }
                     >
-                        <Route index element={<RoleBasedRedirect />} />
                         <Route path="dashboard" element={<Dashboard />} />
                         <Route path="students" element={<Students />} />
                         <Route path="teachers" element={<Teachers />} />
