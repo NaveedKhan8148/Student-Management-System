@@ -30,40 +30,41 @@ export const AuthProvider = ({ children }) => {
             const userData = {
                 username: teacher.name,
                 email: teacher.email,
-                role: 'teacher',
+                role: teacher.role,
                 teacherId: teacher.id,
                 assignedPrograms: teacher.assignedPrograms,
             };
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
-            return { ok: true, role: 'teacher' };
+            return { ok: true, role: teacher.role };
         }
 
         const parent = parentsData.find((p) => p.email === username && p.password === password);
         if (parent) {
+            const childStudent = studentsData.find((s) => s.studentName === parent.childName);
             const userData = {
                 username: parent.name,
                 email: parent.email,
-                role: 'parent',
+                role: parent.role,
                 parentId: parent.id,
-                childStudentId: parent.childStudentId,
+                childStudentId: childStudent ? childStudent.id : null,
             };
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
-            return { ok: true, role: 'parent' };
+            return { ok: true, role: parent.role };
         }
 
         const student = studentsData.find((s) => s.email === username && s.password === password);
         if (student) {
             const userData = {
-                username: student.name,
+                username: student.studentName,
                 email: student.email,
-                role: 'student',
+                role: student.role,
                 studentId: student.id,
             };
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
-            return { ok: true, role: 'student' };
+            return { ok: true, role: student.role };
         }
 
         return { ok: false };

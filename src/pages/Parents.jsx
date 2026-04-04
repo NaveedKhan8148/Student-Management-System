@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
 import { Table, Button, Input, Space, Tag, Modal, Form, Select, message, Card, Row, Col } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { teachersData } from '../data/teachers';
+import { parentsData } from '../data/parents';
+import { studentsData } from '../data/students';
 
 const { Option } = Select;
 
-const Teachers = () => {
-    const [teachers, setTeachers] = useState(teachersData);
+const Parents = () => {
+    const [parents, setParents] = useState(parentsData);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
-    const [editingTeacher, setEditingTeacher] = useState(null);
+    const [editingParent, setEditingParent] = useState(null);
     const [form] = Form.useForm();
 
-    const totalTeachers = teachers.length;
+    const totalParents = parents.length;
+
+    // Get child name options from students data
+    const childNameOptions = studentsData.map(student => ({
+        value: student.studentName,
+        label: student.studentName
+    }));
 
     const columns = [
         {
@@ -29,15 +36,14 @@ const Teachers = () => {
                 return (
                     String(record.name).toLowerCase().includes(value.toLowerCase()) ||
                     String(record.id).toLowerCase().includes(value.toLowerCase()) ||
-                    String(record.email).toLowerCase().includes(value.toLowerCase()) ||
-                    String(record.subject).toLowerCase().includes(value.toLowerCase())
+                    String(record.email).toLowerCase().includes(value.toLowerCase())
                 );
             },
         },
         {
-            title: 'Contact Number',
-            dataIndex: 'contactNumber',
-            key: 'contactNumber',
+            title: 'CNIC NO',
+            dataIndex: 'cnicNo',
+            key: 'cnicNo',
         },
         {
             title: 'Email',
@@ -45,24 +51,14 @@ const Teachers = () => {
             key: 'email',
         },
         {
-            title: 'Subject',
-            dataIndex: 'subject',
-            key: 'subject',
+            title: 'Contact Number',
+            dataIndex: 'contactNumber',
+            key: 'contactNumber',
         },
         {
-            title: 'Date of Joining',
-            dataIndex: 'dateOfJoining',
-            key: 'dateOfJoining',
-        },
-        {
-            title: 'CNIC Number',
-            dataIndex: 'cnicNumber',
-            key: 'cnicNumber',
-        },
-        {
-            title: 'Address',
-            dataIndex: 'address',
-            key: 'address',
+            title: 'Child Name',
+            dataIndex: 'childName',
+            key: 'childName',
         },
         {
             title: 'Status',
@@ -83,57 +79,55 @@ const Teachers = () => {
     ];
 
     const handleEdit = (record) => {
-        setEditingTeacher(record);
+        setEditingParent(record);
         form.setFieldsValue(record);
         setIsModalVisible(true);
     };
 
     const handleDelete = (key) => {
         Modal.confirm({
-            title: 'Are you sure you want to delete this teacher?',
+            title: 'Are you sure you want to delete this parent?',
             onOk: () => {
-                setTeachers(teachers.filter((t) => t.key !== key));
-                message.success('Teacher deleted successfully');
+                setParents(parents.filter((p) => p.key !== key));
+                message.success('Parent deleted successfully');
             },
         });
     };
 
     const handleSave = (values) => {
-        if (editingTeacher) {
-            const updatedTeachers = teachers.map((t) =>
-                t.key === editingTeacher.key
-                    ? { ...t, ...values, password: values.password ?? t.password }
-                    : t
+        if (editingParent) {
+            const updatedParents = parents.map((p) =>
+                p.key === editingParent.key
+                    ? { ...p, ...values, password: values.password ?? p.password }
+                    : p
             );
-            setTeachers(updatedTeachers);
-            message.success('Teacher updated successfully');
+            setParents(updatedParents);
+            message.success('Parent updated successfully');
         } else {
-            const newTeacher = {
-                key: String(teachers.length + 1),
-                id: `TCH00${teachers.length + 1}`,
+            const newParent = {
+                key: String(parents.length + 1),
+                id: `PAR00${parents.length + 1}`,
                 name: values.name,
-                contactNumber: values.contactNumber,
+                cnicNo: values.cnicNo,
                 email: values.email,
-                subject: values.subject,
-                dateOfJoining: values.dateOfJoining,
-                cnicNumber: values.cnicNumber,
-                address: values.address,
+                contactNumber: values.contactNumber,
+                childName: values.childName,
                 password: values.password,
-                role: values.role || 'teacher',
+                role: values.role || 'parent',
                 status: values.status || 'Active',
             };
-            setTeachers([...teachers, newTeacher]);
-            message.success('Teacher added successfully');
+            setParents([...parents, newParent]);
+            message.success('Parent added successfully');
         }
 
         setIsModalVisible(false);
-        setEditingTeacher(null);
+        setEditingParent(null);
         form.resetFields();
     };
 
     const handleCancel = () => {
         setIsModalVisible(false);
-        setEditingTeacher(null);
+        setEditingParent(null);
         form.resetFields();
     };
 
@@ -141,15 +135,15 @@ const Teachers = () => {
         <div>
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} md={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Total teachers" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalTeachers}</div>
+                    <Card hoverable className="hover-card" title="Total parents" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalParents}</div>
                     </Card>
                 </Col>
             </Row>
 
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
                 <Input
-                    placeholder="Search teachers..."
+                    placeholder="Search parents..."
                     prefix={<SearchOutlined />}
                     onChange={(e) => setSearchText(e.target.value)}
                     style={{ width: 300 }}
@@ -158,19 +152,19 @@ const Teachers = () => {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => {
-                        setEditingTeacher(null);
+                        setEditingParent(null);
                         form.resetFields();
                         setIsModalVisible(true);
                     }}
                 >
-                    Add Teacher
+                    Add Parent
                 </Button>
             </div>
 
-            <Table columns={columns} dataSource={teachers} />
+            <Table columns={columns} dataSource={parents} />
 
             <Modal
-                title={editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
+                title={editingParent ? 'Edit Parent' : 'Add New Parent'}
                 open={isModalVisible}
                 onCancel={handleCancel}
                 footer={null}
@@ -179,16 +173,19 @@ const Teachers = () => {
                     <Form.Item
                         name="name"
                         label="Name"
-                        rules={[{ required: true, message: 'Please enter teacher name' }]}
+                        rules={[{ required: true, message: 'Please enter parent name' }]}
                     >
                         <Input />
                     </Form.Item>
                     <Form.Item
-                        name="contactNumber"
-                        label="Contact Number"
-                        rules={[{ required: true, message: 'Please enter contact number' }]}
+                        name="cnicNo"
+                        label="CNIC NO"
+                        rules={[
+                            { required: true, message: 'Please enter CNIC number' },
+                            { pattern: /^\d{5}-\d{7}-\d{1}$/, message: 'CNIC format should be XXXXX-XXXXXXX-X' }
+                        ]}
                     >
-                        <Input placeholder="+92-300-1234567" />
+                        <Input placeholder="12345-6789012-3" />
                     </Form.Item>
                     <Form.Item
                         name="email"
@@ -200,54 +197,29 @@ const Teachers = () => {
                     <Form.Item
                         name="password"
                         label="Password"
-                        rules={editingTeacher ? [] : [{ required: true, message: 'Please enter a password' }]}
+                        rules={editingParent ? [] : [{ required: true, message: 'Please enter a password' }]}
                     >
                         <Input.Password placeholder="Enter login password" />
                     </Form.Item>
                     <Form.Item
-                        name="subject"
-                        label="Subject"
-                        rules={[{ required: true, message: 'Please select subject' }]}
+                        name="contactNumber"
+                        label="Contact Number"
+                        rules={[{ required: true, message: 'Please enter contact number' }]}
                     >
-                        <Select placeholder="Select subject">
-                            <Option value="Mathematics">Mathematics</Option>
-                            <Option value="Physics">Physics</Option>
-                            <Option value="Chemistry">Chemistry</Option>
-                            <Option value="Biology">Biology</Option>
-                            <Option value="English">English</Option>
-                            <Option value="Urdu">Urdu</Option>
-                            <Option value="Computer Science">Computer Science</Option>
-                            <Option value="Business Administration">Business Administration</Option>
-                            <Option value="Engineering">Engineering</Option>
-                            <Option value="Arts">Arts</Option>
-                            <Option value="Economics">Economics</Option>
-                            <Option value="History">History</Option>
-                            <Option value="Geography">Geography</Option>
+                        <Input placeholder="+92-300-1234567" />
+                    </Form.Item>
+                    <Form.Item
+                        name="childName"
+                        label="Child Name"
+                        rules={[{ required: true, message: 'Please select child name' }]}
+                    >
+                        <Select placeholder="Select child name">
+                            {childNameOptions.map((option) => (
+                                <Option key={option.value} value={option.value}>
+                                    {option.label}
+                                </Option>
+                            ))}
                         </Select>
-                    </Form.Item>
-                    <Form.Item
-                        name="dateOfJoining"
-                        label="Date of Joining"
-                        rules={[{ required: true, message: 'Please enter date of joining' }]}
-                    >
-                        <Input placeholder="2023/08/15" />
-                    </Form.Item>
-                    <Form.Item
-                        name="cnicNumber"
-                        label="CNIC Number"
-                        rules={[
-                            { required: true, message: 'Please enter CNIC number' },
-                            { pattern: /^\d{5}-\d{7}-\d{1}$/, message: 'CNIC format should be XXXXX-XXXXXXX-X' }
-                        ]}
-                    >
-                        <Input placeholder="12345-6789012-3" />
-                    </Form.Item>
-                    <Form.Item
-                        name="address"
-                        label="Address"
-                        rules={[{ required: true, message: 'Please enter address' }]}
-                    >
-                        <Input.TextArea rows={3} />
                     </Form.Item>
                     <Form.Item name="status" label="Status" initialValue="Active">
                         <Select>
@@ -258,7 +230,7 @@ const Teachers = () => {
                     <Form.Item
                         name="role"
                         label="Role"
-                        initialValue="teacher"
+                        initialValue="parent"
                         rules={[{ required: true, message: 'Please select a role' }]}
                     >
                         <Select>
@@ -270,7 +242,7 @@ const Teachers = () => {
                     </Form.Item>
                     <Form.Item>
                         <Button type="primary" htmlType="submit" block>
-                            {editingTeacher ? 'Update Teacher' : 'Add Teacher'}
+                            {editingParent ? 'Update Parent' : 'Add Parent'}
                         </Button>
                     </Form.Item>
                 </Form>
@@ -279,4 +251,4 @@ const Teachers = () => {
     );
 };
 
-export default Teachers;
+export default Parents;

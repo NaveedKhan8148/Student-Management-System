@@ -46,6 +46,7 @@ const MainLayout = () => {
         { key: '/dashboard', icon: <DashboardOutlined />, label: 'Analytics dashboard' },
         { key: '/students', icon: <TeamOutlined />, label: 'Students' },
         { key: '/teachers', icon: <TeamOutlined />, label: 'Teachers' },
+        { key: '/parents', icon: <TeamOutlined />, label: 'Parents' },
         { key: '/attendance', icon: <FileDoneOutlined />, label: 'Attendance' },
         { key: '/fees', icon: <DollarOutlined />, label: 'Fees' },
         { key: '/timetable', icon: <CalendarOutlined />, label: 'Timetable' },

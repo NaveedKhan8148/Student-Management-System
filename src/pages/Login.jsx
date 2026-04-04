@@ -82,11 +82,11 @@ const Login = () => {
                     <br />
                     Admin: admin / admin
                     <br />
-                    Teacher: teacher@school.edu / teacher123
+                    Teacher: robert.smith@school.edu / teacher123
                     <br />
-                    Parent (John&apos;s): parent.john@example.com / parent123
+                    Parent (John&apos;s): michael.doe@example.com / parent123
                     <br />
-                    Student: john.doe@example.com / 123456
+                    Student: john.doe@example.com / student123
                 </div>
             </Card>
         </div>

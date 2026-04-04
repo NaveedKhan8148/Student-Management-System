@@ -17,8 +17,8 @@ const Results = () => {
         {
             title: 'Roll No',
             dataIndex: 'studentId',
-            key: 'rollNumber',
-            render: (studentId) => studentsData.find((s) => s.id === studentId)?.rollNumber || '—',
+            key: 'rollNo',
+            render: (studentId) => studentsData.find((s) => s.id === studentId)?.rollNo || '—',
         },
         {
             title: 'Student Name',
@@ -85,7 +85,7 @@ const Results = () => {
             grade: grade,
             term: values.term,
             assessment: 'Composite',
-            rollNumber: match?.rollNumber || '—',
+            rollNo: match?.rollNo || '—',
         };
         setResults([...results, newResult]);
         setIsModalVisible(false);

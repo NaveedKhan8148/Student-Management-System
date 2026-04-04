@@ -40,13 +40,13 @@ const Attendance = () => {
     },
     {
       title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
+      dataIndex: 'studentName',
+      key: 'studentName',
     },
     {
-      title: 'Program',
-      dataIndex: 'program',
-      key: 'program',
+      title: 'Class',
+      dataIndex: 'class',
+      key: 'class',
     },
     {
       title: 'Status',
@@ -58,7 +58,6 @@ const Attendance = () => {
         >
           <Radio.Button value="Present" style={{ color: 'green' }}>Present</Radio.Button>
           <Radio.Button value="Absent" style={{ color: 'red' }}>Absent</Radio.Button>
-
         </Radio.Group>
       ),
     },
@@ -76,7 +75,7 @@ const Attendance = () => {
   // Filter students based on search text
   const filteredStudents = studentsData.filter(student => {
     const search = searchText.trim().toLowerCase();
-    return !search || [student.id, student.name, student.program].some(field =>
+    return !search || [student.id, student.studentName, student.class].some(field =>
       field?.toString().toLowerCase().includes(search)
     );
   });

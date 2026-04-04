@@ -16,7 +16,7 @@ const Students = () => {
     const [form] = Form.useForm();
 
     const classOptions = useMemo(() => {
-        const fromStudents = initialData.map((student) => student.classLabel);
+        const fromStudents = initialData.map((student) => student.class);
         const fromClasses = teacherClassCards.map((item) => item.label);
         return Array.from(new Set([...fromStudents, ...fromClasses]));
     }, []);
@@ -38,44 +38,52 @@ const Students = () => {
             key: 'id',
         },
         {
-            title: 'Roll #',
-            dataIndex: 'rollNumber',
-            key: 'rollNumber',
+            title: 'Roll No',
+            dataIndex: 'rollNo',
+            key: 'rollNo',
         },
         {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
+            title: 'Student Name',
+            dataIndex: 'studentName',
+            key: 'studentName',
             filteredValue: [searchText],
             onFilter: (value, record) => {
                 return (
-                    String(record.name).toLowerCase().includes(value.toLowerCase()) ||
+                    String(record.studentName).toLowerCase().includes(value.toLowerCase()) ||
                     String(record.id).toLowerCase().includes(value.toLowerCase()) ||
-                    String(record.program).toLowerCase().includes(value.toLowerCase())
+                    String(record.email).toLowerCase().includes(value.toLowerCase())
                 );
             },
         },
         {
+            title: 'Email',
+            dataIndex: 'email',
+            key: 'email',
+        },
+        {
+            title: 'Address',
+            dataIndex: 'address',
+            key: 'address',
+        },
+        {
             title: 'Class',
-            dataIndex: 'classLabel',
-            key: 'classLabel',
+            dataIndex: 'class',
+            key: 'class',
         },
         {
-            title: 'Program',
-            dataIndex: 'program',
-            key: 'program',
-            filters: [
-                { text: 'Computer Science', value: 'Computer Science' },
-                { text: 'Business Administration', value: 'Business Administration' },
-                { text: 'Engineering', value: 'Engineering' },
-                { text: 'Arts', value: 'Arts' },
-            ],
-            onFilter: (value, record) => record.program === value,
+            title: 'Father Name',
+            dataIndex: 'fatherName',
+            key: 'fatherName',
         },
         {
-            title: 'Enrollment Date',
-            dataIndex: 'enrollmentDate',
-            key: 'enrollmentDate',
+            title: 'Father Contact',
+            dataIndex: 'fatherContactNumber',
+            key: 'fatherContactNumber',
+        },
+        {
+            title: 'Date of Joining',
+            dataIndex: 'dateOfJoining',
+            key: 'dateOfJoining',
         },
         {
             title: 'Status',
@@ -116,7 +124,9 @@ const Students = () => {
     const handleSave = (values) => {
         if (editingStudent) {
             const updatedStudents = students.map((s) =>
-                s.key === editingStudent.key ? { ...s, ...values } : s
+                s.key === editingStudent.key
+                    ? { ...s, ...values, password: values.password ?? s.password }
+                    : s
             );
             setStudents(updatedStudents);
             message.success('Student updated successfully');
@@ -124,8 +134,16 @@ const Students = () => {
             const newStudent = {
                 key: String(students.length + 1),
                 id: `STU00${students.length + 1}`,
-                ...values,
-                enrollmentDate: new Date().toISOString().split('T')[0],
+                rollNo: values.rollNo,
+                studentName: values.studentName,
+                email: values.email,
+                address: values.address,
+                class: values.class,
+                fatherName: values.fatherName,
+                fatherContactNumber: values.fatherContactNumber,
+                dateOfJoining: values.dateOfJoining,
+                password: values.password,
+                role: values.role || 'student',
                 status: values.status || 'Active',
             };
             setStudents([...students, newStudent]);
@@ -221,18 +239,18 @@ const Students = () => {
             >
                 <Form layout="vertical" onFinish={handleSave} form={form}>
                     <Form.Item
-                        name="name"
-                        label="Full Name"
-                        rules={[{ required: true, message: 'Please enter student name' }]}
-                    >
-                        <Input />
-                    </Form.Item>
-                    <Form.Item
-                        name="rollNumber"
-                        label="Roll number"
+                        name="rollNo"
+                        label="Roll No"
                         rules={[{ required: true, message: 'Please enter roll number' }]}
                     >
                         <Input placeholder="e.g. CS-2026-099" />
+                    </Form.Item>
+                    <Form.Item
+                        name="studentName"
+                        label="Student Name"
+                        rules={[{ required: true, message: 'Please enter student name' }]}
+                    >
+                        <Input />
                     </Form.Item>
                     <Form.Item
                         name="email"
@@ -242,20 +260,22 @@ const Students = () => {
                         <Input />
                     </Form.Item>
                     <Form.Item
-                        name="program"
-                        label="Program"
-                        rules={[{ required: true, message: 'Please select a program' }]}
+                        name="password"
+                        label="Password"
+                        rules={editingStudent ? [] : [{ required: true, message: 'Please enter a password' }]}
                     >
-                        <Select>
-                            <Option value="Computer Science">Computer Science</Option>
-                            <Option value="Business Administration">Business Administration</Option>
-                            <Option value="Engineering">Engineering</Option>
-                            <Option value="Arts">Arts</Option>
-                        </Select>
+                        <Input.Password placeholder="Enter login password" />
                     </Form.Item>
                     <Form.Item
-                        name="classLabel"
-                        label="Class label"
+                        name="address"
+                        label="Address"
+                        rules={[{ required: true, message: 'Please enter address' }]}
+                    >
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
+                    <Form.Item
+                        name="class"
+                        label="Class"
                         rules={[{ required: true, message: 'Please select a class' }]}
                     >
                         <Select placeholder="Choose a class">
@@ -267,17 +287,44 @@ const Students = () => {
                         </Select>
                     </Form.Item>
                     <Form.Item
-                        name="contact"
-                        label="Contact Number"
-                        rules={[{ required: true, message: 'Please enter contact number' }]}
+                        name="fatherName"
+                        label="Father Name"
+                        rules={[{ required: true, message: 'Please enter father name' }]}
                     >
                         <Input />
+                    </Form.Item>
+                    <Form.Item
+                        name="fatherContactNumber"
+                        label="Father Contact Number"
+                        rules={[{ required: true, message: 'Please enter father contact number' }]}
+                    >
+                        <Input placeholder="+92-300-1234567" />
+                    </Form.Item>
+                    <Form.Item
+                        name="dateOfJoining"
+                        label="Date of Joining"
+                        rules={[{ required: true, message: 'Please enter date of joining' }]}
+                    >
+                        <Input placeholder="2023/09/01" />
                     </Form.Item>
                     <Form.Item name="status" label="Status" initialValue="Active">
                         <Select>
                             <Option value="Active">Active</Option>
                             <Option value="Inactive">Inactive</Option>
                             <Option value="Graduated">Graduated</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item
+                        name="role"
+                        label="Role"
+                        initialValue="student"
+                        rules={[{ required: true, message: 'Please select a role' }]}
+                    >
+                        <Select>
+                            <Option value="student">Student</Option>
+                            <Option value="teacher">Teacher</Option>
+                            <Option value="parent">Parent</Option>
+                            <Option value="admin">Admin</Option>
                         </Select>
                     </Form.Item>
                     <Form.Item>
