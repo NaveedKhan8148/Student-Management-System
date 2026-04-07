@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "antd": "^6.1.0",
+    "axios": "^1.14.0",
+    "axois": "^0.0.1-security",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.2",
     "moment": "^2.30.1",

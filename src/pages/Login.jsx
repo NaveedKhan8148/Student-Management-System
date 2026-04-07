@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 const { Title } = Typography;
 
@@ -26,18 +27,28 @@ const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const from = location.state?.from?.pathname;
+    const [jokes, setJokes] = useState([]);
 
-    React.useEffect(() => {
+    // Redirect already-logged-in users away from login page
+    useEffect(() => {
         if (user) {
             const dest = from && from !== '/login' ? from : homePath(user.role);
             navigate(dest, { replace: true });
         }
-    }, [user, navigate, from]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        axios.get("/api/v1/jokes")
+            .then((res) => setJokes(res.data))
+            .catch((err) => console.log(err));
+    }, []);
 
     const onFinish = (values) => {
         const res = login(values.username, values.password);
         if (res.ok) {
             message.success('Login successful');
+            const dest = from && from !== '/login' ? from : homePath(res.role);
+            navigate(dest, { replace: true });
         } else {
             message.error('Invalid username or password');
         }
@@ -58,8 +69,9 @@ const Login = () => {
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
                     <Title level={3} style={{ marginBottom: 8 }}>
                         Education Automation System
+                        <h3>Jokes :{jokes.length}</h3>
                     </Title>
-                    <p style={{ color: '#666', margin: 0 }}>Sign in (demo — static data, no server)</p>
+                    <p style={{ color: '#666', margin: 0 }}>Sign in to continue</p>
                 </div>
                 <Form name="login" onFinish={onFinish} size="large">
                     <Form.Item
