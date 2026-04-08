@@ -8,7 +8,7 @@ import axios from 'axios';
 const { Title } = Typography;
 
 const homePath = (role) => {
-    switch (role) {
+    switch (role?.toLowerCase()) {
         case 'admin':
             return '/dashboard';
         case 'teacher':
@@ -28,6 +28,7 @@ const Login = () => {
     const location = useLocation();
     const from = location.state?.from?.pathname;
     const [jokes, setJokes] = useState([]);
+    const [loading, setLoading] = useState(false);
 
     // Redirect already-logged-in users away from login page
     useEffect(() => {
@@ -35,7 +36,7 @@ const Login = () => {
             const dest = from && from !== '/login' ? from : homePath(user.role);
             navigate(dest, { replace: true });
         }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user, from, navigate]);
 
     useEffect(() => {
         axios.get("/api/v1/jokes")
@@ -43,15 +44,18 @@ const Login = () => {
             .catch((err) => console.log(err));
     }, []);
 
-    const onFinish = (values) => {
-        const res = login(values.username, values.password);
-        if (res.ok) {
+    const onFinish = async (values) => {
+        setLoading(true);
+        const result = await login(values.username, values.password);
+        
+        if (result.ok) {
             message.success('Login successful');
-            const dest = from && from !== '/login' ? from : homePath(res.role);
+            const dest = from && from !== '/login' ? from : homePath(result.role);
             navigate(dest, { replace: true });
         } else {
-            message.error('Invalid username or password');
+            message.error(result.message || 'Invalid username or password');
         }
+        setLoading(false);
     };
 
     return (
@@ -69,36 +73,37 @@ const Login = () => {
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
                     <Title level={3} style={{ marginBottom: 8 }}>
                         Education Automation System
-                        <h3>Jokes :{jokes.length}</h3>
                     </Title>
                     <p style={{ color: '#666', margin: 0 }}>Sign in to continue</p>
+                    {jokes.length > 0 && (
+                        <p style={{ fontSize: 12, color: '#999', marginTop: 8 }}>
+                            Jokes available: {jokes.length}
+                        </p>
+                    )}
                 </div>
                 <Form name="login" onFinish={onFinish} size="large">
                     <Form.Item
                         name="username"
-                        rules={[{ required: true, message: 'Enter email or username' }]}
+                        rules={[{ required: true, message: 'Please enter your email' }]}
                     >
-                        <Input prefix={<UserOutlined />} placeholder="Email or username" />
+                        <Input prefix={<UserOutlined />} placeholder="Email" />
                     </Form.Item>
-                    <Form.Item name="password" rules={[{ required: true, message: 'Enter password' }]}>
+                    <Form.Item 
+                        name="password" 
+                        rules={[{ required: true, message: 'Please enter your password' }]}
+                    >
                         <Input.Password prefix={<LockOutlined />} placeholder="Password" />
                     </Form.Item>
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block>
+                        <Button type="primary" htmlType="submit" block loading={loading}>
                             Log in
                         </Button>
                     </Form.Item>
                 </Form>
                 <div style={{ fontSize: 12, color: '#888', lineHeight: 1.8 }}>
-                    <strong>Demo accounts</strong>
+                    <strong>Login with your registered credentials</strong>
                     <br />
-                    Admin: admin / admin
-                    <br />
-                    Teacher: robert.smith@school.edu / teacher123
-                    <br />
-                    Parent (John&apos;s): michael.doe@example.com / parent123
-                    <br />
-                    Student: john.doe@example.com / student123
+                    Use the email and password you registered with
                 </div>
             </Card>
         </div>
