@@ -1,31 +1,47 @@
+// src/components/ProtectedRoute.jsx
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { Spin } from 'antd';
 import { useAuth } from '../context/AuthContext';
 
-const homeByRole = {
-    admin: '/dashboard',
-    teacher: '/teacher/attendance',
-    student: '/student/timetable',
-    parent: '/parent/overview',
-};
+const ProtectedRoute = ({ children, allowedRoles = [] }) => {
+    const { user, loading } = useAuth();
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
-    const { user, loading, logout } = useAuth();
-    const location = useLocation();
-
+    // Show loading spinner while checking authentication
     if (loading) {
-        return null;
+        return (
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                minHeight: '100vh' 
+            }}>
+                <Spin size="large" />
+            </div>
+        );
     }
 
+    // Not logged in - redirect to login
     if (!user) {
-        return <Navigate to="/login" state={{ from: location }} replace />;
+        return <Navigate to="/login" replace />;
     }
 
-    if (allowedRoles && !allowedRoles.includes(user.role)) {
-        // Role mismatch: clear session so Login page doesn't immediately redirect back
-        // to the current (unauthorized) role homepage.
-        if (typeof logout === 'function') logout();
-        return <Navigate to="/login" replace />;
+    // Check role authorization
+    if (allowedRoles.length > 0) {
+        const userRole = user.role?.toLowerCase();
+        const hasAccess = allowedRoles.some(role => 
+            role.toLowerCase() === userRole
+        );
+        
+        if (!hasAccess) {
+            // Redirect to appropriate dashboard based on role
+            let redirectPath = '/dashboard';
+            if (userRole === 'student') redirectPath = '/student/timetable';
+            else if (userRole === 'teacher') redirectPath = '/teacher/attendance';
+            else if (userRole === 'parent') redirectPath = '/parent/overview';
+            
+            return <Navigate to={redirectPath} replace />;
+        }
     }
 
     return children;

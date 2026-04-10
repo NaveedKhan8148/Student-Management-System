@@ -1,4 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+// src/context/AuthContext.jsx
+import React, { createContext, useState, useContext, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -6,151 +7,106 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const logoutInProgress = useRef(false);
 
     useEffect(() => {
-        // Check for existing session on app load
-        const token = localStorage.getItem('accessToken');
         const storedUser = localStorage.getItem('user');
-        
-        if (token && storedUser) {
-            const userData = JSON.parse(storedUser);
-            setUser(userData);
-            // Set default axios header for future requests
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        const token = localStorage.getItem('accessToken');
+
+        if (storedUser && token) {
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                // Normalize role to lowercase for consistency
+                if (parsedUser.role) {
+                    parsedUser.role = parsedUser.role.toLowerCase();
+                }
+                setUser(parsedUser);
+                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            } catch (error) {
+                console.error('Error parsing stored user:', error);
+                clearAuthData();
+            }
         }
         setLoading(false);
     }, []);
 
-    const login = async (username, password) => {
-        try {
-            const response = await axios.post('/api/v1/users/login', {
-                email: username, // username field contains email
-                password: password
-            });
-
-            if (response.data.success && response.data.data) {
-                const { user: userData, accessToken, refreshToken } = response.data.data;
-                
-                // Transform user data to match the expected format in your app
-                const transformedUser = {
-                    _id: userData._id,
-                    username: userData.username,
-                    email: userData.email,
-                    role: userData.role.toLowerCase(), // Convert to lowercase for consistency
-                    createdAt: userData.createdAt,
-                    updatedAt: userData.updatedAt
-                };
-
-                // Store tokens and user data
-                localStorage.setItem('accessToken', accessToken);
-                localStorage.setItem('refreshToken', refreshToken);
-                localStorage.setItem('user', JSON.stringify(transformedUser));
-                
-                // Set default axios header for future requests
-                axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-                
-                // Update state
-                setUser(transformedUser);
-                
-                return { ok: true, role: transformedUser.role };
-            } else {
-                return { ok: false, message: response.data.message || 'Login failed' };
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            
-            if (error.response) {
-                // Server responded with error status
-                return { 
-                    ok: false, 
-                    message: error.response.data.message || 'Invalid email or password' 
-                };
-            } else if (error.request) {
-                // Request was made but no response
-                return { 
-                    ok: false, 
-                    message: 'Unable to connect to server. Please check your connection.' 
-                };
-            } else {
-                // Something else happened
-                return { 
-                    ok: false, 
-                    message: 'An error occurred. Please try again.' 
-                };
-            }
-        }
-    };
-
-    const logout = () => {
+    const clearAuthData = useCallback(() => {
         setUser(null);
+        localStorage.removeItem('user');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
         delete axios.defaults.headers.common['Authorization'];
-    };
+    }, []);
 
-    // Optional: Function to refresh token
-    const refreshAccessToken = async () => {
+    const login = async (email, password) => {
         try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            if (!refreshToken) return null;
-
-            const response = await axios.post('http://localhost:8000/api/v1/users/refresh-token', {
-                refreshToken: refreshToken
-            });
-
-            if (response.data.success && response.data.data.accessToken) {
-                const newAccessToken = response.data.data.accessToken;
-                localStorage.setItem('accessToken', newAccessToken);
-                axios.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
-                return newAccessToken;
+            const res = await axios.post('/api/v1/users/login', { email, password });
+            const { user, accessToken, refreshToken } = res.data.data;
+            
+            if (user.status === 'INACTIVE') {
+                return {
+                    ok: false,
+                    message: 'Your account is inactive. Please contact administrator.'
+                };
             }
-            return null;
+            
+            // Normalize role to lowercase
+            const normalizedUser = {
+                ...user,
+                role: user.role?.toLowerCase()
+            };
+            
+            setUser(normalizedUser);
+            localStorage.setItem('user', JSON.stringify(normalizedUser));
+            localStorage.setItem('accessToken', accessToken);
+            localStorage.setItem('refreshToken', refreshToken);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+
+            return { ok: true, role: normalizedUser.role };
         } catch (error) {
-            console.error('Token refresh failed:', error);
-            logout(); // Log out if refresh fails
-            return null;
+            console.error('Login error:', error);
+            return {
+                ok: false,
+                message: error.response?.data?.message || 'Login failed'
+            };
         }
     };
 
-    // Add axios interceptor to handle token expiration
-    useEffect(() => {
-        const interceptor = axios.interceptors.response.use(
-            (response) => response,
-            async (error) => {
-                const originalRequest = error.config;
-                
-                // If error is 401 (Unauthorized) and we haven't tried to refresh yet
-                if (error.response?.status === 401 && !originalRequest._retry) {
-                    originalRequest._retry = true;
-                    
-                    try {
-                        const newToken = await refreshAccessToken();
-                        if (newToken) {
-                            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-                            return axios(originalRequest);
-                        }
-                    } catch (refreshError) {
-                        // If refresh fails, log out user
-                        logout();
-                    }
-                }
-                
-                return Promise.reject(error);
+    const logout = useCallback(async () => {
+        // Prevent multiple logout calls
+        if (logoutInProgress.current) {
+            console.log('Logout already in progress, skipping...');
+            return;
+        }
+        
+        logoutInProgress.current = true;
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (token) {
+                // Call logout API but don't await it to prevent blocking
+                axios.post('/api/v1/users/logout', {}, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).catch(err => console.error('Logout API error:', err));
             }
-        );
-
-        // Cleanup interceptor on component unmount
-        return () => {
-            axios.interceptors.response.eject(interceptor);
-        };
-    }, []);
+        } finally {
+            // Clear data immediately
+            clearAuthData();
+            logoutInProgress.current = false;
+        }
+    }, [clearAuthData]);
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, refreshAccessToken }}>
+        <AuthContext.Provider value={{ user, login, logout, loading }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
