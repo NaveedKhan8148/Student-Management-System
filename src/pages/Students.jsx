@@ -1,158 +1,232 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Table, Button, Input, Space, Tag, Modal, Form, Select, message, Card, Row, Col } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { studentsData as initialData } from '../data/students';
 import { feesData } from '../data/fees';
 import { attendanceData } from '../data/attendance';
-import { teacherClassCards } from '../data/teacherClassCards';
+import axios from 'axios';
 
 const { Option } = Select;
 
 const Students = () => {
-    const [students, setStudents] = useState(initialData);
+    const [students, setStudents] = useState([]);
+    const [classes, setClasses] = useState([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [editingStudent, setEditingStudent] = useState(null);
+    const [tableLoading, setTableLoading] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = Form.useForm();
 
-    const classOptions = useMemo(() => {
-        const fromStudents = initialData.map((student) => student.class);
-        const fromClasses = teacherClassCards.map((item) => item.label);
-        return Array.from(new Set([...fromStudents, ...fromClasses]));
+    useEffect(() => {
+        fetchStudents();
+        fetchClasses();
     }, []);
 
+    const fetchStudents = async () => {
+        setTableLoading(true);
+        try {
+            const res = await axios.get('/api/v1/students/');
+            console.log('API Response:', res.data); // Debug log
+            setStudents(res.data.data);
+        } catch (err) {
+            message.error(err.response?.data?.message || 'Failed to fetch students');
+        } finally {
+            setTableLoading(false);
+        }
+    };
+
+    const fetchClasses = async () => {
+        try {
+            const res = await axios.get('/api/v1/classes/');
+            setClasses(res.data.data);
+        } catch (err) {
+            message.error('Failed to fetch classes');
+        }
+    };
+
+    // ── Stats (fees & attendance still from static data until API is ready) ───
     const totalStudents = students.length;
+    
+    // FIXED: Check status from both student level and userId level
+    const inactiveStudents = students.filter(
+        (student) => student.status === 'INACTIVE' || student.userId?.status === 'INACTIVE'
+    ).length;
+    
+    const activeStudents = students.filter(
+        (student) => student.status === 'ACTIVE' || student.userId?.status === 'ACTIVE'
+    ).length;
+
     const totalCollected = feesData
         .filter((item) => item.status === 'Paid')
         .reduce((sum, item) => sum + item.amount, 0);
+
     const totalPending = feesData
         .filter((item) => item.status === 'Pending')
         .reduce((sum, item) => sum + item.amount, 0);
+
     const totalPresent = attendanceData.filter((item) => item.status === 'Present').length;
     const totalAbsent = attendanceData.filter((item) => item.status === 'Absent').length;
 
+    // ── Table columns ─────────────────────────────────────────────────────────
     const columns = [
-        {
-            title: 'ID',
-            dataIndex: 'id',
-            key: 'id',
-        },
         {
             title: 'Roll No',
             dataIndex: 'rollNo',
             key: 'rollNo',
+            sorter: (a, b) => a.rollNo.localeCompare(b.rollNo),
         },
         {
             title: 'Student Name',
             dataIndex: 'studentName',
             key: 'studentName',
             filteredValue: [searchText],
-            onFilter: (value, record) => {
-                return (
-                    String(record.studentName).toLowerCase().includes(value.toLowerCase()) ||
-                    String(record.id).toLowerCase().includes(value.toLowerCase()) ||
-                    String(record.email).toLowerCase().includes(value.toLowerCase())
-                );
-            },
+            onFilter: (value, record) =>
+                String(record.studentName).toLowerCase().includes(value.toLowerCase()) ||
+                String(record.rollNo).toLowerCase().includes(value.toLowerCase()) ||
+                String(record.userId?.email || '').toLowerCase().includes(value.toLowerCase()),
+            sorter: (a, b) => a.studentName.localeCompare(b.studentName),
         },
         {
             title: 'Email',
-            dataIndex: 'email',
             key: 'email',
+            render: (_, record) => record.userId?.email || '-',
+        },
+        {
+            title: 'Class',
+            key: 'class',
+            render: (_, record) => record.classId?.name || '-',
         },
         {
             title: 'Address',
             dataIndex: 'address',
             key: 'address',
-        },
-        {
-            title: 'Class',
-            dataIndex: 'class',
-            key: 'class',
-        },
-        {
-            title: 'Father Name',
-            dataIndex: 'fatherName',
-            key: 'fatherName',
-        },
-        {
-            title: 'Father Contact',
-            dataIndex: 'fatherContactNumber',
-            key: 'fatherContactNumber',
+            render: (address) => address || '-',
         },
         {
             title: 'Date of Joining',
             dataIndex: 'dateOfJoining',
             key: 'dateOfJoining',
+            render: (date) => date ? new Date(date).toLocaleDateString() : '-',
+            sorter: (a, b) => new Date(a.dateOfJoining) - new Date(b.dateOfJoining),
         },
         {
             title: 'Status',
-            dataIndex: 'status',
             key: 'status',
-            render: (status) => (
-                <Tag color={status === 'Active' ? 'green' : 'red'}>{status}</Tag>
-            ),
+            render: (_, record) => {
+                // FIXED: Get status from student level first, then from userId
+                const status = record.status || record.userId?.status || 'ACTIVE';
+                return (
+                    <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>
+                        {status}
+                    </Tag>
+                );
+            },
+            filters: [
+                { text: 'Active', value: 'ACTIVE' },
+                { text: 'Inactive', value: 'INACTIVE' },
+            ],
+            onFilter: (value, record) => {
+                const status = record.status || record.userId?.status || 'ACTIVE';
+                return status === value;
+            },
         },
         {
             title: 'Action',
             key: 'action',
             render: (_, record) => (
                 <Space size="middle">
-                    <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-                    <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+                    <Button
+                        icon={<EditOutlined />}
+                        onClick={() => handleEdit(record)}
+                    />
+                    <Button
+                        icon={<DeleteOutlined />}
+                        danger
+                        onClick={() => handleDelete(record._id)}
+                    />
                 </Space>
             ),
         },
     ];
 
+    // ── Handlers ──────────────────────────────────────────────────────────────
     const handleEdit = (record) => {
         setEditingStudent(record);
-        form.setFieldsValue(record);
+        // FIXED: Get status from student level or userId level
+        const currentStatus = record.status || record.userId?.status || 'ACTIVE';
+        
+        form.setFieldsValue({
+            rollNo: record.rollNo,
+            studentName: record.studentName,
+            address: record.address,
+            classId: record.classId?._id,
+            dateOfJoining: record.dateOfJoining
+                ? new Date(record.dateOfJoining).toISOString().split('T')[0]
+                : '',
+            status: currentStatus,
+        });
         setIsModalVisible(true);
     };
 
-    const handleDelete = (key) => {
+    const handleDelete = (id) => {
         Modal.confirm({
             title: 'Are you sure you want to delete this student?',
-            onOk: () => {
-                setStudents(students.filter((s) => s.key !== key));
-                message.success('Student deleted successfully');
+            content: 'This will also delete the student login account.',
+            okType: 'danger',
+            onOk: async () => {
+                try {
+                    await axios.delete(`/api/v1/students/${id}`);
+                    message.success('Student deleted successfully');
+                    fetchStudents();
+                } catch (err) {
+                    message.error(err.response?.data?.message || 'Failed to delete student');
+                }
             },
         });
     };
 
-    const handleSave = (values) => {
-        if (editingStudent) {
-            const updatedStudents = students.map((s) =>
-                s.key === editingStudent.key
-                    ? { ...s, ...values, password: values.password ?? s.password }
-                    : s
-            );
-            setStudents(updatedStudents);
-            message.success('Student updated successfully');
-        } else {
-            const newStudent = {
-                key: String(students.length + 1),
-                id: `STU00${students.length + 1}`,
-                rollNo: values.rollNo,
-                studentName: values.studentName,
-                email: values.email,
-                address: values.address,
-                class: values.class,
-                fatherName: values.fatherName,
-                fatherContactNumber: values.fatherContactNumber,
-                dateOfJoining: values.dateOfJoining,
-                password: values.password,
-                role: values.role || 'student',
-                status: values.status || 'Active',
-            };
-            setStudents([...students, newStudent]);
-            message.success('Student added successfully');
+    const handleSave = async (values) => {
+        setSubmitLoading(true);
+        try {
+            if (editingStudent) {
+                // For update: update student details AND status
+                const updateData = {
+                    rollNo: values.rollNo,
+                    studentName: values.studentName,
+                    address: values.address,
+                    classId: values.classId,
+                    dateOfJoining: values.dateOfJoining,
+                };
+                
+                // Only include status if it's being updated
+                if (values.status) {
+                    updateData.status = values.status;
+                }
+                
+                await axios.patch(`/api/v1/students/${editingStudent._id}`, updateData);
+                message.success('Student updated successfully');
+            } else {
+                // For create: create new student
+                await axios.post('/api/v1/students/', {
+                    email: values.email,
+                    password: values.password,
+                    rollNo: values.rollNo,
+                    studentName: values.studentName,
+                    address: values.address,
+                    classId: values.classId,
+                    dateOfJoining: values.dateOfJoining,
+                    status: values.status || 'ACTIVE',
+                });
+                message.success('Student created successfully');
+            }
+            fetchStudents();
+            handleCancel();
+        } catch (err) {
+            console.error('Save error:', err);
+            message.error(err.response?.data?.message || 'Operation failed');
+        } finally {
+            setSubmitLoading(false);
         }
-
-        setIsModalVisible(false);
-        setEditingStudent(null);
-        form.resetFields();
     };
 
     const handleCancel = () => {
@@ -161,60 +235,58 @@ const Students = () => {
         form.resetFields();
     };
 
+    // Debug log to check status distribution
+    console.log('Students data:', students.map(s => ({
+        name: s.studentName,
+        studentStatus: s.status,
+        userStatus: s.userId?.status,
+        finalStatus: s.status || s.userId?.status
+    })));
+
     return (
         <div>
+            {/* ── Stat Cards ── */}
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                <Col xs={24} md={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Total students" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalStudents}</div>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card hoverable className="hover-card" title="Total Students" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: '#1890ff' }}>{totalStudents}</div>
                     </Card>
                 </Col>
-                <Col xs={24} md={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Collected fee" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>Rs {totalCollected}</div>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card hoverable className="hover-card" title="Active Students" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: '#52c41a' }}>{activeStudents}</div>
                     </Card>
                 </Col>
-                <Col xs={24} md={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Pending fee" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>Rs {totalPending}</div>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card hoverable className="hover-card" title="Inactive Students" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: '#ff4d4f' }}>{inactiveStudents}</div>
                     </Card>
                 </Col>
-                <Col xs={24} md={12} lg={8}>
-                    <Card hoverable title="Total present" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalPresent}</div>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card hoverable className="hover-card" title="Pending Fee" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: '#faad14' }}>Rs {totalPending}</div>
                     </Card>
                 </Col>
-                <Col xs={24} md={12} lg={8}>
-                    <Card hoverable title="Total absent" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700 }}>{totalAbsent}</div>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card hoverable title="Total Present" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: '#52c41a' }}>{totalPresent}</div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={8}>
+                    <Card hoverable title="Total Absent" bordered>
+                        <div style={{ fontSize: 28, fontWeight: 700, color: '#ff4d4f' }}>{totalAbsent}</div>
                     </Card>
                 </Col>
             </Row>
 
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-                <Col>
-                    <Button type="default" onClick={() => setIsModalVisible(true)}>
-                        Add Student
-                    </Button>
-                </Col>
-                <Col>
-                    <Button type="default" onClick={() => message.info('Fee section available in sidebar')}>
-                        Fee Section
-                    </Button>
-                </Col>
-                <Col>
-                    <Button type="default" onClick={() => message.info('Timetable feature available in sidebar')}>
-                        Add Timetable
-                    </Button>
-                </Col>
-            </Row>
-
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+            {/* ── Search + Add Button ── */}
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                 <Input
-                    placeholder="Search students..."
+                    placeholder="Search by name, roll no or email..."
                     prefix={<SearchOutlined />}
                     onChange={(e) => setSearchText(e.target.value)}
-                    style={{ width: 300 }}
+                    style={{ width: 320 }}
+                    allowClear
                 />
                 <Button
                     type="primary"
@@ -222,6 +294,7 @@ const Students = () => {
                     onClick={() => {
                         setEditingStudent(null);
                         form.resetFields();
+                        form.setFieldsValue({ status: 'ACTIVE' });
                         setIsModalVisible(true);
                     }}
                 >
@@ -229,13 +302,27 @@ const Students = () => {
                 </Button>
             </div>
 
-            <Table columns={columns} dataSource={students} />
+            {/* ── Table ── */}
+            <Table
+                columns={columns}
+                dataSource={students}
+                rowKey="_id"
+                loading={tableLoading}
+                pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showTotal: (total) => `Total ${total} students`,
+                }}
+            />
 
+            {/* ── Add / Edit Modal ── */}
             <Modal
                 title={editingStudent ? 'Edit Student' : 'Add New Student'}
                 open={isModalVisible}
                 onCancel={handleCancel}
                 footer={null}
+                destroyOnClose
+                width={600}
             >
                 <Form layout="vertical" onFinish={handleSave} form={form}>
                     <Form.Item
@@ -243,8 +330,9 @@ const Students = () => {
                         label="Roll No"
                         rules={[{ required: true, message: 'Please enter roll number' }]}
                     >
-                        <Input placeholder="e.g. CS-2026-099" />
+                        <Input placeholder="e.g. 2024-CS-001" />
                     </Form.Item>
+
                     <Form.Item
                         name="studentName"
                         label="Student Name"
@@ -252,83 +340,92 @@ const Students = () => {
                     >
                         <Input />
                     </Form.Item>
+
+                    {/* Email + Password only on CREATE */}
+                    {!editingStudent && (
+                        <>
+                            <Form.Item
+                                name="email"
+                                label="Email"
+                                rules={[
+                                    { required: true, message: 'Please enter email' },
+                                    { type: 'email', message: 'Please enter a valid email' },
+                                ]}
+                            >
+                                <Input />
+                            </Form.Item>
+
+                            <Form.Item
+                                name="password"
+                                label="Password"
+                                rules={[{ required: true, message: 'Please enter a password' }]}
+                            >
+                                <Input.Password placeholder="Temporary password" />
+                            </Form.Item>
+                        </>
+                    )}
+
                     <Form.Item
-                        name="email"
-                        label="Email"
-                        rules={[{ required: true, type: 'email', message: 'Please enter a valid email' }]}
-                    >
-                        <Input />
-                    </Form.Item>
-                    <Form.Item
-                        name="password"
-                        label="Password"
-                        rules={editingStudent ? [] : [{ required: true, message: 'Please enter a password' }]}
-                    >
-                        <Input.Password placeholder="Enter login password" />
-                    </Form.Item>
-                    <Form.Item
-                        name="address"
-                        label="Address"
-                        rules={[{ required: true, message: 'Please enter address' }]}
-                    >
-                        <Input.TextArea rows={3} />
-                    </Form.Item>
-                    <Form.Item
-                        name="class"
+                        name="classId"
                         label="Class"
                         rules={[{ required: true, message: 'Please select a class' }]}
                     >
-                        <Select placeholder="Choose a class">
-                            {classOptions.map((label) => (
-                                <Option key={label} value={label}>
-                                    {label}
+                        <Select 
+                            placeholder="Select a class" 
+                            loading={classes.length === 0}
+                            showSearch
+                            optionFilterProp="children"
+                        >
+                            {classes.map((cls) => (
+                                <Option key={cls._id} value={cls._id}>
+                                    {cls.name}
                                 </Option>
                             ))}
                         </Select>
                     </Form.Item>
-                    <Form.Item
-                        name="fatherName"
-                        label="Father Name"
-                        rules={[{ required: true, message: 'Please enter father name' }]}
-                    >
-                        <Input />
+
+                    <Form.Item name="address" label="Address">
+                        <Input.TextArea rows={2} />
                     </Form.Item>
-                    <Form.Item
-                        name="fatherContactNumber"
-                        label="Father Contact Number"
-                        rules={[{ required: true, message: 'Please enter father contact number' }]}
-                    >
-                        <Input placeholder="+92-300-1234567" />
-                    </Form.Item>
+
                     <Form.Item
                         name="dateOfJoining"
                         label="Date of Joining"
                         rules={[{ required: true, message: 'Please enter date of joining' }]}
                     >
-                        <Input placeholder="2023/09/01" />
+                        <Input type="date" />
                     </Form.Item>
-                    <Form.Item name="status" label="Status" initialValue="Active">
-                        <Select>
-                            <Option value="Active">Active</Option>
-                            <Option value="Inactive">Inactive</Option>
-                            <Option value="Graduated">Graduated</Option>
-                        </Select>
-                    </Form.Item>
+
+                    {/* Status Field - Visible in both Add and Edit modes */}
                     <Form.Item
-                        name="role"
-                        label="Role"
-                        initialValue="student"
-                        rules={[{ required: true, message: 'Please select a role' }]}
+                        name="status"
+                        label="Status"
+                        rules={[{ required: true, message: 'Please select status' }]}
                     >
-                        <Select>
-                            <Option value="student">Student</Option>
-                            <Option value="teacher">Teacher</Option>
-                            <Option value="parent">Parent</Option>
-                            <Option value="admin">Admin</Option>
+                        <Select placeholder="Select status">
+                            <Option value="ACTIVE">
+                                <Space>
+                                    <Tag color="green">ACTIVE</Tag>
+                                    <span>Active Student</span>
+                                </Space>
+                            </Option>
+                            <Option value="INACTIVE">
+                                <Space>
+                                    <Tag color="red">INACTIVE</Tag>
+                                    <span>Inactive Student</span>
+                                </Space>
+                            </Option>
                         </Select>
                     </Form.Item>
+
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            block
+                            loading={submitLoading}
+                            size="large"
+                        >
                             {editingStudent ? 'Update Student' : 'Add Student'}
                         </Button>
                     </Form.Item>
