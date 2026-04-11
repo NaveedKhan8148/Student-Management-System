@@ -1,19 +1,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Table, Button, Modal, Form, Input, Select, message,
-    Tag, Space, Card, Row, Col, Statistic, Popconfirm, Progress, Tooltip
+    Tag, Space, Card, Row, Col, Statistic, Popconfirm, Progress, 
+    Tooltip, Badge, Avatar, DatePicker, Tabs, Typography
 } from 'antd';
 import {
     PlusOutlined, PrinterOutlined, EditOutlined,
     DeleteOutlined, ReloadOutlined, SearchOutlined,
     RiseOutlined, FallOutlined, TrophyOutlined, BookOutlined,
-    CheckCircleOutlined, CloseCircleOutlined, PercentageOutlined
+    CheckCircleOutlined, CloseCircleOutlined, PercentageOutlined,
+    UserOutlined, ClockCircleOutlined, FileTextOutlined,
+    SaveOutlined
 } from '@ant-design/icons';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from 'axios';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
+
+
+const { Title, Text } = Typography;  // <-- ADD THIS LINE
+
+dayjs.extend(relativeTime);
 
 const { Option } = Select;
+const { TextArea } = Input;
 
 const GRADE_COLOR = {
     'A+': 'green',
@@ -191,7 +204,7 @@ const Results = () => {
         );
     }, [results, searchText]);
 
-    // Stats calculations based on FILTERED results (not all results)
+    // Stats calculations based on FILTERED results
     const totalResults = filteredResults.length;
     const avgMarks = totalResults > 0
         ? (filteredResults.reduce((s, r) => s + r.marks, 0) / totalResults).toFixed(1)
@@ -210,6 +223,35 @@ const Results = () => {
         'C': filteredResults.filter(r => r.grade === 'C').length,
         'F': filteredResults.filter(r => r.grade === 'F').length,
     };
+
+    // Stats Cards Data
+    const statsCards = [
+        {
+            title: 'Total Records',
+            value: totalResults,
+            icon: <BookOutlined />,
+            color: '#1890ff',
+            bgColor: '#e6f7ff',
+            subtitle: searchText ? `From ${results.length} total` : null
+        },
+        {
+            title: 'Average Marks',
+            value: `${avgMarks}%`,
+            icon: <RiseOutlined />,
+            color: '#52c41a',
+            bgColor: '#f6ffed',
+            progress: true,
+            progressValue: avgMarks
+        },
+        {
+            title: 'Pass Rate',
+            value: `${passRate}%`,
+            icon: <PercentageOutlined />,
+            color: '#faad14',
+            bgColor: '#fff7e6',
+            subtitle: `${passCount} Passed / ${failCount} Failed`
+        }
+    ];
 
     // Handlers
     const handleCreate = async (values) => {
@@ -312,24 +354,31 @@ const Results = () => {
         message.success('Report card downloaded');
     };
 
-    // Clear search function
-    const clearSearch = () => {
+    const clearFilters = () => {
+        setSelectedStudent(null);
+        setSelectedClass(null);
         setSearchText('');
+        setSelectedSemester(null);
     };
 
-    // Table columns (removed the onFilter since we're filtering with useMemo)
+    // Table columns
     const columns = [
         {
             title: 'Student',
             dataIndex: 'studentName',
             key: 'studentName',
             sorter: (a, b) => (a.studentName || '').localeCompare(b.studentName || ''),
-        },
-        {
-            title: 'Roll No',
-            dataIndex: 'rollNo',
-            key: 'rollNo',
-            sorter: (a, b) => (a.rollNo || '').localeCompare(b.rollNo || ''),
+            render: (name, record) => (
+                <Tooltip title={`Roll No: ${record.rollNo}`}>
+                    <Space>
+                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                        <div>
+                            <div style={{ fontWeight: 500 }}>{name}</div>
+                            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{record.rollNo}</div>
+                        </div>
+                    </Space>
+                </Tooltip>
+            ),
         },
         {
             title: 'Class',
@@ -341,6 +390,11 @@ const Results = () => {
             dataIndex: 'subject',
             key: 'subject',
             sorter: (a, b) => (a.subject || '').localeCompare(b.subject || ''),
+            render: (subject) => (
+                <Tag icon={<BookOutlined />} color="cyan">
+                    {subject}
+                </Tag>
+            ),
         },
         {
             title: 'Marks',
@@ -356,7 +410,7 @@ const Results = () => {
                             strokeColor={marks >= 60 ? '#52c41a' : '#ff4d4f'}
                             format={(percent) => `${percent}`}
                         />
-                        <span>{marks}/100</span>
+                        <span style={{ fontWeight: 500 }}>{marks}/100</span>
                     </Space>
                 </Tooltip>
             ),
@@ -366,14 +420,15 @@ const Results = () => {
             title: 'Grade',
             dataIndex: 'grade',
             key: 'grade',
-            render: (grade, record) => (
+            render: (grade) => (
                 <Tag 
                     color={GRADE_COLOR[grade] || 'default'}
                     style={{ 
                         backgroundColor: GRADE_BG_COLOR[grade],
                         fontWeight: 'bold',
                         fontSize: '14px',
-                        padding: '4px 12px'
+                        padding: '4px 12px',
+                        borderRadius: '20px'
                     }}
                 >
                     {grade}
@@ -389,14 +444,22 @@ const Results = () => {
             dataIndex: 'semester',
             key: 'semester',
             sorter: (a, b) => (a.semester || '').localeCompare(b.semester || ''),
+            render: (semester) => (
+                <Tooltip title={`Submitted: ${dayjs().format('YYYY-MM-DD')}`}>
+                    <Space>
+                        <ClockCircleOutlined style={{ color: '#8c8c8c' }} />
+                        <span>{semester}</span>
+                    </Space>
+                </Tooltip>
+            ),
         },
         {
             title: 'Action',
             key: 'action',
-            width: 150,
+            width: 180,
             render: (_, record) => (
                 <Space size="small">
-                    <Tooltip title="Edit">
+                    <Tooltip title="Edit Result">
                         <Button
                             icon={<EditOutlined />}
                             size="small"
@@ -412,12 +475,13 @@ const Results = () => {
                     </Tooltip>
                     <Popconfirm
                         title="Delete this result?"
+                        description="This action cannot be undone."
                         onConfirm={() => handleDelete(record._id)}
                         okText="Yes"
                         cancelText="No"
                         okButtonProps={{ danger: true }}
                     >
-                        <Tooltip title="Delete">
+                        <Tooltip title="Delete Result">
                             <Button icon={<DeleteOutlined />} size="small" danger />
                         </Tooltip>
                     </Popconfirm>
@@ -428,93 +492,59 @@ const Results = () => {
 
     return (
         <div>
-            {/* Modern Stats Cards - Now showing filtered data stats */}
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    Results & Grading
+                </Title>
+                <Text type="secondary">
+                    Manage student results, track performance, and generate report cards
+                </Text>
+            </div>
+
+            {/* Stats Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card 
-                        hoverable 
-                        style={{ 
-                            borderTop: '4px solid #1890ff',
-                            borderRadius: '10px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                    <BookOutlined /> Total Records
+                {statsCards.map((card, index) => (
+                    <Col xs={24} sm={12} lg={8} key={index}>
+                        <Card 
+                            hoverable 
+                            style={{ 
+                                borderTop: `4px solid ${card.color}`,
+                                borderRadius: '10px',
+                                backgroundColor: card.bgColor
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                        {card.title}
+                                    </div>
+                                    <div style={{ fontSize: '32px', fontWeight: 'bold', color: card.color }}>
+                                        {card.value}
+                                    </div>
+                                    {card.subtitle && (
+                                        <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                                            {card.subtitle}
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1890ff' }}>
-                                    {totalResults}
-                                </div>
-                                {searchText && (
-                                    <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
-                                        Filtered from {results.length}
+                                {card.progress ? (
+                                    <Progress 
+                                        type="circle" 
+                                        percent={card.progressValue} 
+                                        width={60} 
+                                        strokeColor={card.color}
+                                    />
+                                ) : (
+                                    <div style={{ fontSize: '48px', color: card.color }}>
+                                        {card.icon}
                                     </div>
                                 )}
                             </div>
-                            <div style={{ fontSize: '48px', color: '#1890ff' }}>
-                                <BookOutlined />
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-                
-                <Col xs={24} sm={12} lg={6}>
-                    <Card 
-                        hoverable 
-                        style={{ 
-                            borderTop: '4px solid #52c41a',
-                            borderRadius: '10px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                    <RiseOutlined /> Average Marks
-                                </div>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#52c41a' }}>
-                                    {avgMarks}%
-                                </div>
-                            </div>
-                            <Progress 
-                                type="circle" 
-                                percent={avgMarks} 
-                                width={60} 
-                                strokeColor="#52c41a"
-                            />
-                        </div>
-                    </Card>
-                </Col>
-                
-                <Col xs={24} sm={12} lg={6}>
-                    <Card 
-                        hoverable 
-                        style={{ 
-                            borderTop: '4px solid #faad14',
-                            borderRadius: '10px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                    <PercentageOutlined /> Pass Rate
-                                </div>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#faad14' }}>
-                                    {passRate}%
-                                </div>
-                                <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
-                                    {passCount} Passed / {failCount} Failed
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'center' }}>
-                                <CheckCircleOutlined style={{ fontSize: '40px', color: '#52c41a', marginRight: '8px' }} />
-                                <CloseCircleOutlined style={{ fontSize: '40px', color: '#ff4d4f' }} />
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-                
-                <Col xs={24} sm={12} lg={6}>
+                        </Card>
+                    </Col>
+                ))}
+                <Col xs={24} sm={12} lg={8}>
                     <Card 
                         hoverable 
                         style={{ 
@@ -531,17 +561,17 @@ const Results = () => {
                                     <Col span={12} key={grade}>
                                         <Tag 
                                             color={GRADE_COLOR[grade]} 
-                                            style={{ width: '100%', textAlign: 'center' }}
+                                            style={{ width: '100%', textAlign: 'center', padding: '4px 8px' }}
                                         >
-                                            {grade}: {count}
+                                            <strong>{grade}</strong>: {count}
                                         </Tag>
                                     </Col>
                                 )
                             ))}
                             {totalResults === 0 && (
                                 <Col span={24}>
-                                    <div style={{ textAlign: 'center', color: '#8c8c8c' }}>
-                                        No data
+                                    <div style={{ textAlign: 'center', color: '#8c8c8c', padding: '20px 0' }}>
+                                        No data available
                                     </div>
                                 </Col>
                             )}
@@ -550,9 +580,9 @@ const Results = () => {
                 </Col>
             </Row>
 
-            {/* Filter controls */}
+            {/* Filters Card */}
             <Card style={{ marginBottom: 16, borderRadius: '10px' }}>
-                <Space wrap size="middle">
+                <Space wrap size="middle" style={{ width: '100%' }}>
                     <div>
                         <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
                             Filter by
@@ -564,7 +594,7 @@ const Results = () => {
                                 setResults([]);
                                 setSelectedStudent(null);
                                 setSelectedClass(null);
-                                setSearchText(''); // Clear search when changing filter mode
+                                setSearchText('');
                             }}
                             style={{ width: 130 }}
                         >
@@ -574,19 +604,19 @@ const Results = () => {
                     </div>
 
                     {filterMode === 'student' && (
-                        <div>
+                        <div style={{ minWidth: 250 }}>
                             <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
                                 Student
                             </div>
                             <Select
                                 placeholder="Select student"
-                                style={{ width: 250 }}
+                                style={{ width: '100%' }}
                                 showSearch
                                 allowClear
                                 optionFilterProp="children"
                                 onChange={(val) => {
                                     setSelectedStudent(val);
-                                    setSearchText(''); // Clear search when changing student
+                                    setSearchText('');
                                 }}
                                 value={selectedStudent}
                             >
@@ -600,17 +630,17 @@ const Results = () => {
                     )}
 
                     {filterMode === 'class' && (
-                        <div>
+                        <div style={{ minWidth: 200 }}>
                             <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
                                 Class
                             </div>
                             <Select
                                 placeholder="Select class"
-                                style={{ width: 200 }}
+                                style={{ width: '100%' }}
                                 allowClear
                                 onChange={(val) => {
                                     setSelectedClass(val);
-                                    setSearchText(''); // Clear search when changing class
+                                    setSearchText('');
                                 }}
                                 value={selectedClass}
                             >
@@ -623,31 +653,39 @@ const Results = () => {
                         </div>
                     )}
 
-                    <div>
+                    <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
                             Search
                         </div>
                         <Input
-                            placeholder="Search name / subject / grade..."
+                            placeholder="Search by student, subject, or grade..."
                             prefix={<SearchOutlined />}
                             allowClear
-                            style={{ width: 250 }}
+                            style={{ width: '100%' }}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
-                            suffix={
-                                searchText && (
-                                    <Button 
-                                        type="text" 
-                                        size="small" 
-                                        onClick={clearSearch}
-                                        style={{ marginRight: -8 }}
-                                    >
-                                        Clear
-                                    </Button>
-                                )
-                            }
                         />
                     </div>
+
+                    <div style={{ minWidth: 150 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Semester
+                        </div>
+                        <Input
+                            placeholder="e.g., Fall-2024"
+                            allowClear
+                            value={selectedSemester}
+                            onChange={(e) => setSelectedSemester(e.target.value || null)}
+                        />
+                    </div>
+
+                    {(selectedStudent || selectedClass || searchText || selectedSemester) && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Button onClick={clearFilters}>
+                                Clear Filters
+                            </Button>
+                        </div>
+                    )}
                 </Space>
             </Card>
 
@@ -658,7 +696,10 @@ const Results = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center'
             }}>
-                <h3 style={{ margin: 0, fontWeight: 600 }}>📊 Results & Grading</h3>
+                <h3 style={{ margin: 0, fontWeight: 600 }}>
+                    <FileTextOutlined style={{ color: '#1890ff', marginRight: 8 }} />
+                    Results Records
+                </h3>
                 <Space>
                     <Button
                         icon={<ReloadOutlined />}
@@ -683,7 +724,7 @@ const Results = () => {
                 </Space>
             </div>
 
-            {/* Table - showing filtered results */}
+            {/* Table */}
             {!selectedStudent && !selectedClass ? (
                 <Card style={{ borderRadius: '10px' }}>
                     <div style={{ textAlign: 'center', padding: 60, color: '#8c8c8c' }}>
@@ -701,16 +742,20 @@ const Results = () => {
                         pageSize: 10,
                         showSizeChanger: true,
                         showTotal: (total) => `Total ${total} results`,
-                        pageSizeOptions: ['10', '20', '50'],
+                        pageSizeOptions: ['10', '20', '50', '100'],
                     }}
-                    scroll={{ x: 1100 }}
-                    style={{ borderRadius: '10px' }}
+                    scroll={{ x: 1200 }}
                 />
             )}
 
             {/* Create Modal */}
             <Modal
-                title="📝 Enter Student Marks"
+                title={
+                    <Space>
+                        <PlusOutlined style={{ color: '#1890ff' }} />
+                        <span>Enter Student Marks</span>
+                    </Space>
+                }
                 open={isModalVisible}
                 onCancel={() => {
                     setIsModalVisible(false);
@@ -718,7 +763,7 @@ const Results = () => {
                 }}
                 footer={null}
                 destroyOnClose
-                width={500}
+                width={550}
             >
                 <Form layout="vertical" onFinish={handleCreate} form={form}>
                     <Form.Item
@@ -730,6 +775,7 @@ const Results = () => {
                             placeholder="Select student"
                             showSearch
                             optionFilterProp="children"
+                            size="large"
                         >
                             {students.map((s) => (
                                 <Option key={s._id} value={s._id}>
@@ -744,7 +790,7 @@ const Results = () => {
                         label="Class"
                         rules={[{ required: true, message: 'Please select a class' }]}
                     >
-                        <Select placeholder="Select class">
+                        <Select placeholder="Select class" size="large">
                             {classes.map((c) => (
                                 <Option key={c._id} value={c._id}>
                                     {c.name}
@@ -758,7 +804,7 @@ const Results = () => {
                         label="Subject"
                         rules={[{ required: true, message: 'Please enter subject' }]}
                     >
-                        <Input placeholder="e.g. Mathematics" />
+                        <Input placeholder="e.g. Mathematics" size="large" />
                     </Form.Item>
 
                     <Form.Item
@@ -766,7 +812,7 @@ const Results = () => {
                         label="Marks (0–100)"
                         rules={[{ required: true, message: 'Please enter marks' }]}
                     >
-                        <Input type="number" min={0} max={100} />
+                        <Input type="number" min={0} max={100} size="large" />
                     </Form.Item>
 
                     <Form.Item
@@ -774,7 +820,7 @@ const Results = () => {
                         label="Semester"
                         rules={[{ required: true, message: 'Please enter semester' }]}
                     >
-                        <Input placeholder="e.g. Fall-2024" />
+                        <Input placeholder="e.g. Fall-2024" size="large" />
                     </Form.Item>
 
                     <Form.Item>
@@ -784,6 +830,7 @@ const Results = () => {
                             block
                             loading={submitLoading}
                             size="large"
+                            icon={<SaveOutlined />}
                         >
                             Save Marks
                         </Button>
@@ -793,7 +840,12 @@ const Results = () => {
 
             {/* Edit Modal */}
             <Modal
-                title="✏️ Update Result"
+                title={
+                    <Space>
+                        <EditOutlined style={{ color: '#1890ff' }} />
+                        <span>Update Result</span>
+                    </Space>
+                }
                 open={isEditModalVisible}
                 onCancel={() => {
                     setIsEditModalVisible(false);
@@ -802,7 +854,7 @@ const Results = () => {
                 }}
                 footer={null}
                 destroyOnClose
-                width={450}
+                width={500}
             >
                 <Form layout="vertical" onFinish={handleEditSave} form={editForm}>
                     <Form.Item
@@ -810,14 +862,14 @@ const Results = () => {
                         label="Marks (0–100)"
                         rules={[{ required: true, message: 'Please enter marks' }]}
                     >
-                        <Input type="number" min={0} max={100} />
+                        <Input type="number" min={0} max={100} size="large" />
                     </Form.Item>
 
                     <Form.Item
                         name="grade"
                         label="Grade (leave blank to auto-calculate)"
                     >
-                        <Select allowClear placeholder="Auto-calculate from marks">
+                        <Select allowClear placeholder="Auto-calculate from marks" size="large">
                             {Object.keys(GRADE_COLOR).map((g) => (
                                 <Option key={g} value={g}>{g}</Option>
                             ))}
@@ -831,6 +883,7 @@ const Results = () => {
                             block
                             loading={submitLoading}
                             size="large"
+                            icon={<CheckCircleOutlined />}
                         >
                             Update Result
                         </Button>

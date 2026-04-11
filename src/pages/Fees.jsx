@@ -1,18 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Table, Button, Card, Statistic, Row, Col, Tag, Modal,
-    Form, Input, Select, DatePicker, message, Space, Popconfirm
+    Form, Input, Select, DatePicker, message, Space, Popconfirm,
+    Tooltip, Avatar, Typography, Badge
 } from 'antd';
 import {
     PlusOutlined, PrinterOutlined, ReloadOutlined,
-    CheckOutlined, EditOutlined, DeleteOutlined
+    CheckOutlined, EditOutlined, DeleteOutlined,
+    DollarOutlined, ClockCircleOutlined, WarningOutlined,
+    UserOutlined, FileTextOutlined, SaveOutlined,SearchOutlined  
 } from '@ant-design/icons';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 const { Option } = Select;
+const { Title, Text } = Typography;
 
 const Fees = () => {
     const [students, setStudents] = useState([]);
@@ -44,11 +51,9 @@ const Fees = () => {
     // Helper function to extract amount from Decimal128
     const extractAmount = (amount) => {
         if (!amount) return 0;
-        // Handle Decimal128 format: { $numberDecimal: "15000" }
         if (typeof amount === 'object' && amount.$numberDecimal) {
             return parseFloat(amount.$numberDecimal);
         }
-        // Handle direct number or string
         return parseFloat(amount) || 0;
     };
 
@@ -66,7 +71,6 @@ const Fees = () => {
         try {
             const res = await axios.get(`/api/v1/fees/student/${studentId}`);
             const feesData = res.data.data || [];
-            // Process amounts
             const processedFees = feesData.map(fee => ({
                 ...fee,
                 amount: extractAmount(fee.amount)
@@ -110,20 +114,74 @@ const Fees = () => {
         if (students.length > 0) fetchAllFees();
     }, [students]);
 
-    // Stats from allFees with proper amount calculation
-    const totalCollected = allFees
+    // Filter fees based on search text
+    const filteredFees = useMemo(() => {
+        const displayFees = selectedStudent ? fees : allFees;
+        
+        let filtered = displayFees;
+        
+        // Apply search filter
+        if (searchText) {
+            filtered = filtered.filter((record) =>
+                (record.feeType || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                (record.status || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                (record.studentName || '').toLowerCase().includes(searchText.toLowerCase()) ||
+                (record.rollNo || '').toLowerCase().includes(searchText.toLowerCase())
+            );
+        }
+        
+        // Apply date range filter
+        if (dateRange && dateRange[0] && dateRange[1]) {
+            filtered = filtered.filter((record) => {
+                const due = dayjs(record.dueDate).format('YYYY-MM-DD');
+                return due >= dateRange[0].format('YYYY-MM-DD') &&
+                       due <= dateRange[1].format('YYYY-MM-DD');
+            });
+        }
+        
+        return filtered;
+    }, [selectedStudent, fees, allFees, searchText, dateRange]);
+
+    // Stats from filtered fees
+    const totalCollected = filteredFees
         .filter((f) => f.status === 'Paid')
         .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
 
-    const totalPending = allFees
+    const totalPending = filteredFees
         .filter((f) => f.status === 'Pending')
         .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
 
-    const totalOverdue = allFees
+    const totalOverdue = filteredFees
         .filter((f) => f.status === 'Overdue')
         .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
 
-    const overdueCount = allFees.filter((f) => f.status === 'Overdue').length;
+    const overdueCount = filteredFees.filter((f) => f.status === 'Overdue').length;
+
+    // Stats Cards Data
+    const statsCards = [
+        {
+            title: 'Total Collected',
+            value: `Rs ${totalCollected.toLocaleString()}`,
+            icon: <DollarOutlined />,
+            color: '#52c41a',
+            bgColor: '#f6ffed'
+        },
+        {
+            title: 'Pending Dues',
+            value: `Rs ${totalPending.toLocaleString()}`,
+            icon: <ClockCircleOutlined />,
+            color: '#faad14',
+            bgColor: '#fff7e6'
+        },
+        {
+            title: 'Overdue Amount',
+            value: `Rs ${totalOverdue.toLocaleString()}`,
+            icon: <WarningOutlined />,
+            color: '#ff4d4f',
+            bgColor: '#fff2f0',
+            subtitle: `${overdueCount} records overdue`
+        }
+    ];
 
     // PDF receipt
     const generateReceipt = (record) => {
@@ -132,14 +190,15 @@ const Fees = () => {
         doc.text('Fee Receipt', 105, 20, null, null, 'center');
         doc.setFontSize(12);
         doc.text(`Student: ${record.studentName || '-'}`, 20, 40);
-        doc.text(`Fee Type: ${record.feeType}`, 20, 50);
-        doc.text(`Due Date: ${dayjs(record.dueDate).format('YYYY-MM-DD')}`, 20, 60);
+        doc.text(`Roll No: ${record.rollNo || '-'}`, 20, 50);
+        doc.text(`Fee Type: ${record.feeType}`, 20, 60);
+        doc.text(`Due Date: ${dayjs(record.dueDate).format('YYYY-MM-DD')}`, 20, 70);
         doc.text(
             `Paid Date: ${record.paidDate ? dayjs(record.paidDate).format('YYYY-MM-DD') : '-'}`,
-            20, 70
+            20, 80
         );
         autoTable(doc, {
-            startY: 80,
+            startY: 90,
             head: [['Fee Type', 'Amount', 'Status']],
             body: [[record.feeType, `Rs ${Number(record.amount).toLocaleString()}`, record.status]],
         });
@@ -230,33 +289,56 @@ const Fees = () => {
         }
     };
 
-    // Table columns
-    const statusColor = (status) => {
-        if (status === 'Paid') return 'green';
-        if (status === 'Overdue') return 'red';
-        return 'orange';
+    const clearFilters = () => {
+        setSelectedStudent(null);
+        setSearchText('');
+        setDateRange(null);
     };
 
+    const getStatusConfig = (status) => {
+        switch (status) {
+            case 'Paid':
+                return { color: '#52c41a', bgColor: '#f6ffed', icon: <CheckOutlined /> };
+            case 'Overdue':
+                return { color: '#ff4d4f', bgColor: '#fff2f0', icon: <WarningOutlined /> };
+            default:
+                return { color: '#faad14', bgColor: '#fff7e6', icon: <ClockCircleOutlined /> };
+        }
+    };
+
+    // Table columns
     const feeColumns = [
         {
             title: 'Student',
             key: 'student',
-            render: (_, r) => r.studentName || r.studentId?.studentName || '-',
             sorter: (a, b) => (a.studentName || '').localeCompare(b.studentName || ''),
-        },
-        {
-            title: 'Roll No',
-            key: 'rollNo',
-            render: (_, r) => r.rollNo || '-',
+            render: (_, record) => (
+                <Tooltip title={`Roll No: ${record.rollNo}`}>
+                    <Space>
+                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                        <div>
+                            <div style={{ fontWeight: 500 }}>{record.studentName || '-'}</div>
+                            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{record.rollNo || '-'}</div>
+                        </div>
+                    </Space>
+                </Tooltip>
+            ),
         },
         {
             title: 'Fee Type',
             dataIndex: 'feeType',
             key: 'feeType',
+            render: (type) => (
+                <Tag color="purple" icon={<FileTextOutlined />}>
+                    {type}
+                </Tag>
+            ),
             filters: [
                 { text: 'Tuition', value: 'Tuition' },
                 { text: 'Lab', value: 'Lab' },
                 { text: 'Library', value: 'Library' },
+                { text: 'Exam', value: 'Exam' },
+                { text: 'Sports', value: 'Sports' },
             ],
             onFilter: (value, record) => record.feeType === value,
         },
@@ -264,27 +346,50 @@ const Fees = () => {
             title: 'Amount',
             dataIndex: 'amount',
             key: 'amount',
-            render: (amount) => `Rs ${Number(amount).toLocaleString()}`,
+            render: (amount) => (
+                <span style={{ fontWeight: 600, color: '#1890ff' }}>
+                    Rs {Number(amount).toLocaleString()}
+                </span>
+            ),
             sorter: (a, b) => (a.amount || 0) - (b.amount || 0),
         },
         {
             title: 'Due Date',
             dataIndex: 'dueDate',
             key: 'dueDate',
-            render: (d) => dayjs(d).format('YYYY-MM-DD'),
+            render: (d) => (
+                <Tooltip title={dayjs(d).fromNow()}>
+                    <Space>
+                        <ClockCircleOutlined style={{ color: '#8c8c8c' }} />
+                        <span>{dayjs(d).format('YYYY-MM-DD')}</span>
+                    </Space>
+                </Tooltip>
+            ),
             sorter: (a, b) => dayjs(a.dueDate).unix() - dayjs(b.dueDate).unix(),
         },
         {
             title: 'Paid Date',
             dataIndex: 'paidDate',
             key: 'paidDate',
-            render: (d) => (d ? dayjs(d).format('YYYY-MM-DD') : '-'),
+            render: (d) => d ? dayjs(d).format('YYYY-MM-DD') : '-',
         },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (s) => <Tag color={statusColor(s)}>{s}</Tag>,
+            render: (status) => {
+                const config = getStatusConfig(status);
+                return (
+                    <Badge 
+                        color={config.color} 
+                        text={
+                            <span style={{ color: config.color, fontWeight: 500 }}>
+                                {config.icon} {status}
+                            </span>
+                        }
+                    />
+                );
+            },
             filters: [
                 { text: 'Paid', value: 'Paid' },
                 { text: 'Pending', value: 'Pending' },
@@ -295,178 +400,197 @@ const Fees = () => {
         {
             title: 'Action',
             key: 'action',
-            width: 200,
+            width: 220,
             render: (_, record) => (
-                <Space size="small" wrap>
+                <Space size="small">
                     {record.status !== 'Paid' && (
-                        <Popconfirm
-                            title="Mark this fee as paid?"
-                            onConfirm={() => handleMarkPaid(record._id)}
-                            okText="Yes"
-                            cancelText="No"
-                        >
-                            <Button
-                                icon={<CheckOutlined />}
-                                size="small"
-                                type="primary"
-                                ghost
-                                title="Mark Paid"
-                            />
-                        </Popconfirm>
+                        <Tooltip title="Mark as Paid">
+                            <Popconfirm
+                                title="Mark this fee as paid?"
+                                onConfirm={() => handleMarkPaid(record._id)}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <Button
+                                    icon={<CheckOutlined />}
+                                    size="small"
+                                    type="primary"
+                                    ghost
+                                    style={{ borderColor: '#52c41a', color: '#52c41a' }}
+                                />
+                            </Popconfirm>
+                        </Tooltip>
                     )}
-                    <Button
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEditOpen(record)}
-                        title="Edit"
-                    />
-                    <Button
-                        icon={<PrinterOutlined />}
-                        size="small"
-                        onClick={() => generateReceipt(record)}
-                        title="Receipt"
-                    />
+                    <Tooltip title="Edit Fee">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEditOpen(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Download Receipt">
+                        <Button
+                            icon={<PrinterOutlined />}
+                            size="small"
+                            onClick={() => generateReceipt(record)}
+                        />
+                    </Tooltip>
                     <Popconfirm
                         title="Delete this fee record?"
+                        description="This action cannot be undone."
                         onConfirm={() => handleDelete(record._id)}
                         okText="Yes"
                         cancelText="No"
                         okButtonProps={{ danger: true }}
                     >
-                        <Button icon={<DeleteOutlined />} size="small" danger />
+                        <Tooltip title="Delete Fee">
+                            <Button icon={<DeleteOutlined />} size="small" danger />
+                        </Tooltip>
                     </Popconfirm>
                 </Space>
             ),
         },
     ];
 
-    // Filter displayed fees
-    const displayFees = selectedStudent ? fees : allFees;
-
-    const filteredFees = displayFees.filter((record) => {
-        const keyword = searchText.trim().toLowerCase();
-        const matchText =
-            !keyword ||
-            [record.feeType, record.status, record.studentName, record.rollNo]
-                .some((f) => f?.toString().toLowerCase().includes(keyword));
-
-        const due = dayjs(record.dueDate).format('YYYY-MM-DD');
-        const matchDate =
-            !dateRange || !dateRange[0] || !dateRange[1]
-                ? true
-                : due >= dateRange[0].format('YYYY-MM-DD') &&
-                  due <= dateRange[1].format('YYYY-MM-DD');
-
-        return matchText && matchDate;
-    });
-
     return (
         <div>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    Fee Management
+                </Title>
+                <Text type="secondary">
+                    Track student fees, payments, and generate receipts
+                </Text>
+            </div>
+
             {/* Stats Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable style={{ borderTop: '4px solid #52c41a' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                Total Collected
+                {statsCards.map((card, index) => (
+                    <Col xs={24} sm={12} lg={8} key={index}>
+                        <Card 
+                            hoverable 
+                            style={{ 
+                                borderTop: `4px solid ${card.color}`,
+                                borderRadius: '10px',
+                                backgroundColor: card.bgColor
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                        {card.title}
+                                    </div>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: card.color }}>
+                                        {card.value}
+                                    </div>
+                                    {card.subtitle && (
+                                        <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                                            {card.subtitle}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ fontSize: '48px', color: card.color }}>
+                                    {card.icon}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#52c41a' }}>
-                                Rs {totalCollected.toLocaleString()}
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable style={{ borderTop: '4px solid #faad14' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                Pending Dues
-                            </div>
-                            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#faad14' }}>
-                                Rs {totalPending.toLocaleString()}
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable style={{ borderTop: '4px solid #ff4d4f' }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                Overdue Amount
-                            </div>
-                            <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                                Rs {totalOverdue.toLocaleString()}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#ff4d4f', marginTop: '4px' }}>
-                                ({overdueCount} records overdue)
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
+                        </Card>
+                    </Col>
+                ))}
             </Row>
 
-            {/* Controls */}
-            <Row gutter={[12, 12]} style={{ marginBottom: 16 }} align="middle">
-                <Col xs={24} md={6}>
-                    <Select
-                        placeholder="Filter by student (optional)"
-                        style={{ width: '100%' }}
-                        allowClear
-                        showSearch
-                        optionFilterProp="children"
-                        onChange={(val) => setSelectedStudent(val)}
-                        value={selectedStudent}
+            {/* Filters Card */}
+            <Card style={{ marginBottom: 16, borderRadius: '10px' }}>
+                <Space wrap size="middle" style={{ width: '100%' }}>
+                    <div style={{ minWidth: 250 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Filter by Student
+                        </div>
+                        <Select
+                            placeholder="All Students"
+                            style={{ width: '100%' }}
+                            allowClear
+                            showSearch
+                            optionFilterProp="children"
+                            onChange={(val) => setSelectedStudent(val)}
+                            value={selectedStudent}
+                        >
+                            {students.map((s) => (
+                                <Option key={s._id} value={s._id}>
+                                    {s.studentName} — {s.rollNo}
+                                </Option>
+                            ))}
+                        </Select>
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Search
+                        </div>
+                        <Input
+                            placeholder="Search by type, status, or student..."
+                            prefix={<SearchOutlined />}
+                            allowClear
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                        />
+                    </div>
+
+                    <div style={{ minWidth: 280 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Due Date Range
+                        </div>
+                        <DatePicker.RangePicker
+                            value={dateRange}
+                            onChange={(dates) => setDateRange(dates)}
+                            style={{ width: '100%' }}
+                            placeholder={['Due From', 'Due To']}
+                            format="YYYY-MM-DD"
+                        />
+                    </div>
+
+                    {(selectedStudent || searchText || dateRange) && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Button onClick={clearFilters}>
+                                Clear Filters
+                            </Button>
+                        </div>
+                    )}
+                </Space>
+            </Card>
+
+            {/* Action buttons */}
+            <div style={{
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <h3 style={{ margin: 0, fontWeight: 600 }}>
+                    <DollarOutlined style={{ color: '#1890ff', marginRight: 8 }} />
+                    Transaction History
+                </h3>
+                <Space>
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => {
+                            fetchAllFees();
+                            if (selectedStudent) fetchFeesByStudent(selectedStudent);
+                        }}
                     >
-                        {students.map((s) => (
-                            <Option key={s._id} value={s._id}>
-                                {s.studentName} — {s.rollNo}
-                            </Option>
-                        ))}
-                    </Select>
-                </Col>
-                <Col xs={24} md={6}>
-                    <Input.Search
-                        placeholder="Search by type / status / name..."
-                        allowClear
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                    />
-                </Col>
-                <Col xs={24} md={8}>
-                    <DatePicker.RangePicker
-                        value={dateRange}
-                        onChange={(dates) => setDateRange(dates)}
-                        style={{ width: '100%' }}
-                        placeholder={['Due From', 'Due To']}
-                    />
-                </Col>
-                <Col xs={24} md={4}>
+                        Refresh
+                    </Button>
                     <Button
                         type="primary"
                         icon={<PlusOutlined />}
                         onClick={() => setIsModalVisible(true)}
-                        block
                     >
                         Record Payment
                     </Button>
-                </Col>
-            </Row>
-
-            {/* Refresh Button */}
-            <div style={{ marginBottom: 16, textAlign: 'right' }}>
-                <Button
-                    icon={<ReloadOutlined />}
-                    onClick={() => {
-                        fetchAllFees();
-                        if (selectedStudent) fetchFeesByStudent(selectedStudent);
-                    }}
-                >
-                    Refresh
-                </Button>
+                </Space>
             </div>
 
-            {/* Transaction table */}
-            <h3>Transaction History</h3>
+            {/* Table */}
             <Table
                 columns={feeColumns}
                 dataSource={filteredFees}
@@ -476,15 +600,19 @@ const Fees = () => {
                     pageSize: 10,
                     showSizeChanger: true,
                     showTotal: (total) => `Total ${total} records`,
-                    pageSizeOptions: ['10', '20', '50'],
+                    pageSizeOptions: ['10', '20', '50', '100'],
                 }}
-                scroll={{ x: 1100 }}
+                scroll={{ x: 1200 }}
             />
 
-       
-
-      <Modal
-                title="Record New Fee"
+            {/* Create Modal */}
+            <Modal
+                title={
+                    <Space>
+                        <PlusOutlined style={{ color: '#1890ff' }} />
+                        <span>Record New Fee</span>
+                    </Space>
+                }
                 open={isModalVisible}
                 onCancel={() => {
                     setIsModalVisible(false);
@@ -492,6 +620,7 @@ const Fees = () => {
                 }}
                 footer={null}
                 destroyOnClose
+                width={550}
             >
                 <Form layout="vertical" onFinish={handleCreateFee} form={form}>
                     <Form.Item
@@ -503,6 +632,7 @@ const Fees = () => {
                             placeholder="Select student"
                             showSearch
                             optionFilterProp="children"
+                            size="large"
                         >
                             {students.map((s) => (
                                 <Option key={s._id} value={s._id}>
@@ -517,12 +647,13 @@ const Fees = () => {
                         label="Fee Type"
                         rules={[{ required: true, message: 'Please select fee type' }]}
                     >
-                        <Select placeholder="Select fee type">
-                            <Option value="Tuition">Tuition</Option>
-                            <Option value="Lab">Lab</Option>
-                            <Option value="Library">Library</Option>
-                            <Option value="Exam">Exam</Option>
-                            <Option value="Sports">Sports</Option>
+                        <Select placeholder="Select fee type" size="large">
+                            <Option value="Tuition">Tuition Fee</Option>
+                            <Option value="Lab">Lab Fee</Option>
+                            <Option value="Library">Library Fee</Option>
+                            <Option value="Exam">Exam Fee</Option>
+                            <Option value="Sports">Sports Fee</Option>
+                            <Option value="Transport">Transport Fee</Option>
                         </Select>
                     </Form.Item>
 
@@ -531,7 +662,14 @@ const Fees = () => {
                         label="Amount"
                         rules={[{ required: true, message: 'Please enter amount' }]}
                     >
-                        <Input type="number" prefix="Rs" min={0} step={100} />
+                        <Input 
+                            type="number" 
+                            prefix="Rs" 
+                            min={0} 
+                            step={100} 
+                            size="large"
+                            placeholder="Enter amount"
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -539,20 +677,36 @@ const Fees = () => {
                         label="Due Date"
                         rules={[{ required: true, message: 'Please select due date' }]}
                     >
-                        <DatePicker style={{ width: '100%' }} />
+                        <DatePicker 
+                            style={{ width: '100%' }} 
+                            size="large"
+                            format="YYYY-MM-DD"
+                        />
                     </Form.Item>
 
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={submitLoading}>
+                        <Button 
+                            type="primary" 
+                            htmlType="submit" 
+                            block 
+                            loading={submitLoading}
+                            size="large"
+                            icon={<SaveOutlined />}
+                        >
                             Create Fee Record
                         </Button>
                     </Form.Item>
                 </Form>
             </Modal>
 
-            {/* Edit Fee Modal */}
+            {/* Edit Modal */}
             <Modal
-                title="Update Fee Record"
+                title={
+                    <Space>
+                        <EditOutlined style={{ color: '#1890ff' }} />
+                        <span>Update Fee Record</span>
+                    </Space>
+                }
                 open={isEditModalVisible}
                 onCancel={() => {
                     setIsEditModalVisible(false);
@@ -561,6 +715,7 @@ const Fees = () => {
                 }}
                 footer={null}
                 destroyOnClose
+                width={500}
             >
                 <Form layout="vertical" onFinish={handleEditSave} form={editForm}>
                     <Form.Item
@@ -568,7 +723,13 @@ const Fees = () => {
                         label="Amount"
                         rules={[{ required: true, message: 'Please enter amount' }]}
                     >
-                        <Input type="number" prefix="Rs" min={0} step={100} />
+                        <Input 
+                            type="number" 
+                            prefix="Rs" 
+                            min={0} 
+                            step={100} 
+                            size="large"
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -576,7 +737,11 @@ const Fees = () => {
                         label="Due Date"
                         rules={[{ required: true, message: 'Please select due date' }]}
                     >
-                        <DatePicker style={{ width: '100%' }} />
+                        <DatePicker 
+                            style={{ width: '100%' }} 
+                            size="large"
+                            format="YYYY-MM-DD"
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -584,7 +749,7 @@ const Fees = () => {
                         label="Status"
                         rules={[{ required: true, message: 'Please select status' }]}
                     >
-                        <Select>
+                        <Select size="large">
                             <Option value="Pending">Pending</Option>
                             <Option value="Paid">Paid</Option>
                             <Option value="Overdue">Overdue</Option>
@@ -592,7 +757,14 @@ const Fees = () => {
                     </Form.Item>
 
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={submitLoading}>
+                        <Button 
+                            type="primary" 
+                            htmlType="submit" 
+                            block 
+                            loading={submitLoading}
+                            size="large"
+                            icon={<SaveOutlined />}
+                        >
                             Update Fee
                         </Button>
                     </Form.Item>

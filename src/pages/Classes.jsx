@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Table, Button, Input, Space, Tag, Modal, Form, Select,
-    message, Card, Row, Col, Popconfirm
+    message, Card, Row, Col, Popconfirm, Tooltip, Avatar, Typography, Badge
 } from 'antd';
 import {
     PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined,
-    ReloadOutlined, BookOutlined, UserOutlined
+    ReloadOutlined, BookOutlined, UserOutlined, TeamOutlined,
+    SaveOutlined, ClockCircleOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
+import dayjs from 'dayjs';
 
+const { Title, Text } = Typography;
 const { Option } = Select;
 
 const Classes = () => {
@@ -30,7 +33,7 @@ const Classes = () => {
         setTableLoading(true);
         try {
             const res = await axios.get('/api/v1/classes/');
-            setClasses(res.data.data);
+            setClasses(res.data.data?.classes || res.data.data || []);
         } catch (err) {
             message.error(err.response?.data?.message || 'Failed to fetch classes');
         } finally {
@@ -41,27 +44,77 @@ const Classes = () => {
     const fetchTeachers = async () => {
         try {
             const res = await axios.get('/api/v1/teachers/');
-            setTeachers(res.data.data);
+            setTeachers(res.data.data?.teachers || res.data.data || []);
         } catch (err) {
             message.error('Failed to fetch teachers');
         }
     };
 
-    // ── Stats ─────────────────────────────────────────────────────────────────
+    // Filter classes based on search
+    const filteredClasses = useMemo(() => {
+        if (!searchText) return classes;
+        
+        return classes.filter((record) =>
+            (record.name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (record.classTeacherId?.name || '').toLowerCase().includes(searchText.toLowerCase())
+        );
+    }, [classes, searchText]);
+
+    // Stats
     const totalClasses = classes.length;
     const totalTeachers = teachers.length;
+    const classesWithTeacher = classes.filter(c => c.classTeacherId).length;
+    const classesWithoutTeacher = totalClasses - classesWithTeacher;
 
-    // ── Table columns ─────────────────────────────────────────────────────────
+    // Stats Cards
+    const statsCards = [
+        { 
+            title: 'Total Classes', 
+            value: totalClasses, 
+            color: '#1890ff', 
+            bgColor: '#e6f7ff',
+            icon: <BookOutlined />,
+            subtitle: 'Active classes'
+        },
+        { 
+            title: 'Total Teachers', 
+            value: totalTeachers, 
+            color: '#faad14', 
+            bgColor: '#fff7e6',
+            icon: <UserOutlined />,
+            subtitle: 'Available teachers'
+        },
+        { 
+            title: 'Classes with Teacher', 
+            value: classesWithTeacher, 
+            color: '#52c41a', 
+            bgColor: '#f6ffed',
+            icon: <TeamOutlined />,
+            subtitle: 'Assigned'
+        },
+        { 
+            title: 'Classes without Teacher', 
+            value: classesWithoutTeacher, 
+            color: '#ff4d4f', 
+            bgColor: '#fff2f0',
+            icon: <UserOutlined />,
+            subtitle: 'Pending assignment'
+        },
+    ];
+
+    // Table columns
     const columns = [
         {
             title: 'Class Name',
             dataIndex: 'name',
             key: 'name',
-            filteredValue: [searchText],
-            onFilter: (value, record) =>
-                String(record.name).toLowerCase().includes(value.toLowerCase()) ||
-                String(record.classTeacherId?.name || '').toLowerCase().includes(value.toLowerCase()),
             sorter: (a, b) => a.name.localeCompare(b.name),
+            render: (name) => (
+                <Space>
+                    <BookOutlined style={{ color: '#1890ff' }} />
+                    <span style={{ fontWeight: 500 }}>{name}</span>
+                </Space>
+            ),
         },
         {
             title: 'Class Teacher',
@@ -69,41 +122,78 @@ const Classes = () => {
             render: (_, record) => {
                 const teacher = record.classTeacherId;
                 if (teacher?.name) {
-                    return <Tag color="blue">{teacher.name}</Tag>;
+                    return (
+                        <Tooltip title={`Subject: ${teacher.subject || 'N/A'}`}>
+                            <Space>
+                                <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                                <div>
+                                    <div style={{ fontWeight: 500 }}>{teacher.name}</div>
+                                    <div style={{ fontSize: 12, color: '#8c8c8c' }}>{teacher.subject || 'Teacher'}</div>
+                                </div>
+                            </Space>
+                        </Tooltip>
+                    );
                 }
-                return <Tag color="default">Not Assigned</Tag>;
+                return (
+                    <Tag color="default" icon={<ClockCircleOutlined />}>
+                        Not Assigned
+                    </Tag>
+                );
             },
         },
         {
             title: 'Subject',
             key: 'subject',
-            render: (_, record) => record.classTeacherId?.subject || '-',
+            render: (_, record) => {
+                const subject = record.classTeacherId?.subject;
+                return subject ? (
+                    <Tag color="cyan">{subject}</Tag>
+                ) : (
+                    <Text type="secondary">—</Text>
+                );
+            },
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            render: (_, record) => (
+                <Badge 
+                    color={record.classTeacherId ? '#52c41a' : '#faad14'}
+                    text={record.classTeacherId ? 'Active' : 'Pending'}
+                />
+            ),
         },
         {
             title: 'Action',
             key: 'action',
+            width: 120,
             render: (_, record) => (
-                <Space size="middle">
-                    <Button
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                    />
+                <Space size="small">
+                    <Tooltip title="Edit Class">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
                     <Popconfirm
                         title="Delete Class"
-                        description="Are you sure you want to delete this class?"
+                        description="Are you sure you want to delete this class? This will also affect all students in this class."
                         onConfirm={() => handleDelete(record._id)}
                         okText="Yes"
                         cancelText="No"
                         okButtonProps={{ danger: true }}
                     >
-                        <Button icon={<DeleteOutlined />} danger />
+                        <Tooltip title="Delete Class">
+                            <Button icon={<DeleteOutlined />} size="small" danger />
+                        </Tooltip>
                     </Popconfirm>
                 </Space>
             ),
         },
     ];
 
-    // ── Handlers ──────────────────────────────────────────────────────────────
+    // Handlers
     const handleEdit = (record) => {
         setEditingClass(record);
         form.setFieldsValue({
@@ -127,14 +217,12 @@ const Classes = () => {
         setSubmitLoading(true);
         try {
             if (editingClass) {
-                // ── UPDATE ────────────────────────────────────────────────────
                 await axios.patch(`/api/v1/classes/${editingClass._id}`, {
                     name: values.name,
                     classTeacherId: values.classTeacherId,
                 });
                 message.success('Class updated successfully');
             } else {
-                // ── CREATE ────────────────────────────────────────────────────
                 await axios.post('/api/v1/classes/', {
                     name: values.name,
                     classTeacherId: values.classTeacherId,
@@ -156,30 +244,49 @@ const Classes = () => {
         form.resetFields();
     };
 
-    // ── Stats cards ───────────────────────────────────────────────────────────
-    const statsCards = [
-        { title: 'Total Classes',  value: totalClasses,  color: '#1890ff', icon: <BookOutlined /> },
-        { title: 'Total Teachers', value: totalTeachers, color: '#faad14', icon: <UserOutlined /> },
-    ];
+    const clearSearch = () => {
+        setSearchText('');
+    };
 
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div>
-            {/* ── Stat Cards ── */}
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    Class Management
+                </Title>
+                <Text type="secondary">
+                    Manage classes, assign teachers, and track class information
+                </Text>
+            </div>
+
+            {/* Stats Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 {statsCards.map((card, index) => (
                     <Col xs={24} sm={12} lg={6} key={index}>
-                        <Card hoverable style={{ borderTop: `4px solid ${card.color}` }}>
+                        <Card 
+                            hoverable 
+                            style={{ 
+                                borderTop: `4px solid ${card.color}`,
+                                borderRadius: '10px',
+                                backgroundColor: card.bgColor
+                            }}
+                        >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                    <div style={{ fontSize: 14, color: '#8c8c8c', marginBottom: 8 }}>
+                                    <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
                                         {card.title}
                                     </div>
-                                    <div style={{ fontSize: 30, fontWeight: 'bold', color: card.color }}>
+                                    <div style={{ fontSize: '32px', fontWeight: 'bold', color: card.color }}>
                                         {card.value}
                                     </div>
+                                    {card.subtitle && (
+                                        <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                                            {card.subtitle}
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{ fontSize: 40, color: card.color }}>
+                                <div style={{ fontSize: '48px', color: card.color }}>
                                     {card.icon}
                                 </div>
                             </div>
@@ -188,57 +295,79 @@ const Classes = () => {
                 ))}
             </Row>
 
-            {/* ── Search + Buttons ── */}
-            <div style={{
-                marginBottom: 16,
-                display: 'flex',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 10,
-            }}>
-                <Input
-                    placeholder="Search by class name or teacher..."
-                    prefix={<SearchOutlined />}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    style={{ width: 320 }}
-                    allowClear
-                />
-                <Space>
-                    <Button icon={<ReloadOutlined />} onClick={fetchClasses}>
-                        Refresh
-                    </Button>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                            setEditingClass(null);
-                            form.resetFields();
-                            setIsModalVisible(true);
-                        }}
-                    >
-                        Add Class
-                    </Button>
-                </Space>
-            </div>
+            {/* Filters Card */}
+            <Card style={{ marginBottom: 16, borderRadius: '10px' }}>
+                <Space wrap size="middle" style={{ width: '100%' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Search
+                        </div>
+                        <Input
+                            placeholder="Search by class name or teacher..."
+                            prefix={<SearchOutlined />}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            allowClear
+                            value={searchText}
+                            style={{ width: '100%' }}
+                        />
+                    </div>
 
-            {/* ── Table ── */}
+                    {searchText && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Button onClick={clearSearch}>
+                                Clear Search
+                            </Button>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={fetchClasses}
+                        >
+                            Refresh
+                        </Button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                                setEditingClass(null);
+                                form.resetFields();
+                                setIsModalVisible(true);
+                            }}
+                        >
+                            Add Class
+                        </Button>
+                    </div>
+                </Space>
+            </Card>
+
+            {/* Table */}
             <Table
                 columns={columns}
-                dataSource={classes}
+                dataSource={filteredClasses}
                 rowKey="_id"
                 loading={tableLoading}
                 pagination={{
                     pageSize: 10,
                     showSizeChanger: true,
                     showTotal: (total) => `Total ${total} classes`,
-                    pageSizeOptions: ['10', '20', '50'],
+                    pageSizeOptions: ['10', '20', '50', '100'],
                 }}
-                scroll={{ x: 600 }}
+                scroll={{ x: 800 }}
             />
 
-            {/* ── Add / Edit Modal ── */}
+            {/* Add/Edit Modal */}
             <Modal
-                title={editingClass ? 'Edit Class' : 'Add New Class'}
+                title={
+                    <Space>
+                        {editingClass ? <EditOutlined style={{ color: '#1890ff' }} /> : <PlusOutlined style={{ color: '#1890ff' }} />}
+                        <span>{editingClass ? 'Edit Class' : 'Add New Class'}</span>
+                    </Space>
+                }
                 open={isModalVisible}
                 onCancel={handleCancel}
                 footer={null}
@@ -251,7 +380,11 @@ const Classes = () => {
                         label="Class Name"
                         rules={[{ required: true, message: 'Please enter class name' }]}
                     >
-                        <Input placeholder="e.g. CS-101" />
+                        <Input 
+                            placeholder="e.g., Grade 10, Class 5, O-Level" 
+                            size="large"
+                            prefix={<BookOutlined style={{ color: '#8c8c8c' }} />}
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -264,10 +397,15 @@ const Classes = () => {
                             showSearch
                             optionFilterProp="children"
                             loading={teachers.length === 0}
+                            size="large"
                         >
                             {teachers.map((teacher) => (
                                 <Option key={teacher._id} value={teacher._id}>
-                                    {teacher.name} — {teacher.subject}
+                                    <Space>
+                                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                                        <span>{teacher.name}</span>
+                                        <Tag color="cyan">{teacher.subject || 'Teacher'}</Tag>
+                                    </Space>
                                 </Option>
                             ))}
                         </Select>
@@ -280,6 +418,7 @@ const Classes = () => {
                             block
                             loading={submitLoading}
                             size="large"
+                            icon={<SaveOutlined />}
                         >
                             {editingClass ? 'Update Class' : 'Create Class'}
                         </Button>

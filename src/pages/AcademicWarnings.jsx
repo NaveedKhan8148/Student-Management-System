@@ -2,17 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
     Table, Tag, Typography, Button, Modal, Form, Input,
     Select, message, Space, Popconfirm, Card, Row, Col,
-    Statistic, DatePicker
+    Statistic, DatePicker, Badge, Tooltip, Avatar
 } from 'antd';
 import {
     PlusOutlined, EditOutlined, DeleteOutlined,
     ReloadOutlined, SearchOutlined, WarningOutlined,
-    UserOutlined, ExclamationCircleOutlined
+    UserOutlined, ExclamationCircleOutlined, ClockCircleOutlined,
+    CheckCircleOutlined, CloseCircleOutlined, FileTextOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
-const { Title, Text } = Typography;
+dayjs.extend(relativeTime);
+
+const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
@@ -80,7 +84,6 @@ const AcademicWarnings = () => {
     // Attach studentName + rollNo from students list
     const enrichWarnings = (data) => {
         return data.map((w) => {
-            // Get student ID correctly (handle both populated and unpopulated)
             let studentId = w.studentId;
             if (typeof w.studentId === 'object' && w.studentId !== null) {
                 studentId = w.studentId._id;
@@ -90,7 +93,7 @@ const AcademicWarnings = () => {
             
             return {
                 ...w,
-                studentId: studentId, // Store just the ID for consistency
+                studentId: studentId,
                 studentName: foundStudent?.studentName || w.studentId?.studentName || 'Unknown Student',
                 rollNo: foundStudent?.rollNo || w.studentId?.rollNo || 'N/A',
                 warningDate: w.warningDate,
@@ -115,6 +118,34 @@ const AcademicWarnings = () => {
     const uniqueStudents = new Set(
         filteredWarnings.map((w) => w.studentId)
     ).size;
+
+    // Stats Cards Data
+    const statsCards = [
+        {
+            title: 'Total Warnings',
+            value: totalWarnings,
+            icon: <WarningOutlined />,
+            color: '#ff4d4f',
+            bgColor: '#fff2f0',
+            subtitle: searchText ? `From ${warnings.length} total` : null
+        },
+        {
+            title: 'Students with Warnings',
+            value: uniqueStudents,
+            icon: <UserOutlined />,
+            color: '#faad14',
+            bgColor: '#fff7e6',
+            subtitle: `Out of ${students.length} total students`
+        },
+        {
+            title: 'Total Students',
+            value: students.length,
+            icon: <UserOutlined />,
+            color: '#1890ff',
+            bgColor: '#e6f7ff',
+            subtitle: 'Enrolled students'
+        }
+    ];
 
     // Handlers
     const handleCreate = async (values) => {
@@ -202,18 +233,26 @@ const AcademicWarnings = () => {
             key: 'studentName',
             sorter: (a, b) => (a.studentName || '').localeCompare(b.studentName || ''),
             render: (name, record) => (
-                <Space>
-                    <UserOutlined style={{ color: '#1890ff' }} />
-                    <span>{name}</span>
-                    <Tag color="default">{record.rollNo}</Tag>
-                </Space>
+                <Tooltip title={`Roll No: ${record.rollNo}`}>
+                    <Space>
+                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                        <div>
+                            <div style={{ fontWeight: 500 }}>{name}</div>
+                            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{record.rollNo}</div>
+                        </div>
+                    </Space>
+                </Tooltip>
             ),
         },
         {
             title: 'Rule Violated',
             dataIndex: 'ruleViolated',
             key: 'ruleViolated',
-            render: (rule) => <Tag color="orange" icon={<ExclamationCircleOutlined />}>{rule}</Tag>,
+            render: (rule) => (
+                <Tag color="orange" icon={<ExclamationCircleOutlined />} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    {rule}
+                </Tag>
+            ),
             filters: [
                 { text: 'Attendance Below 75%', value: 'Attendance Below 75%' },
                 { text: 'Failed in Multiple Subjects', value: 'Failed in Multiple Subjects' },
@@ -228,13 +267,27 @@ const AcademicWarnings = () => {
             dataIndex: 'detailDescription',
             key: 'detailDescription',
             ellipsis: true,
-            width: 300,
+            width: 350,
+            render: (text) => (
+                <Tooltip title={text}>
+                    <Paragraph ellipsis={{ rows: 1 }} style={{ margin: 0 }}>
+                        {text}
+                    </Paragraph>
+                </Tooltip>
+            ),
         },
         {
             title: 'Warning Date',
             dataIndex: 'warningDate',
             key: 'warningDate',
-            render: (d) => (d ? dayjs(d).format('YYYY-MM-DD') : '-'),
+            render: (d) => (
+                <Tooltip title={dayjs(d).format('YYYY-MM-DD HH:mm:ss')}>
+                    <Space>
+                        <ClockCircleOutlined style={{ color: '#8c8c8c' }} />
+                        <span>{dayjs(d).format('YYYY-MM-DD')}</span>
+                    </Space>
+                </Tooltip>
+            ),
             sorter: (a, b) =>
                 dayjs(a.warningDate).unix() - dayjs(b.warningDate).unix(),
         },
@@ -244,19 +297,24 @@ const AcademicWarnings = () => {
             width: 100,
             render: (_, record) => (
                 <Space size="small">
-                    <Button
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEditOpen(record)}
-                    />
+                    <Tooltip title="Edit Warning">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEditOpen(record)}
+                        />
+                    </Tooltip>
                     <Popconfirm
                         title="Delete this warning?"
+                        description="This action cannot be undone."
                         onConfirm={() => handleDelete(record._id)}
                         okText="Yes"
                         cancelText="No"
                         okButtonProps={{ danger: true }}
                     >
-                        <Button icon={<DeleteOutlined />} size="small" danger />
+                        <Tooltip title="Delete Warning">
+                            <Button icon={<DeleteOutlined />} size="small" danger />
+                        </Tooltip>
                     </Popconfirm>
                 </Space>
             ),
@@ -266,105 +324,74 @@ const AcademicWarnings = () => {
     return (
         <div>
             {/* Header */}
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 24 }}>
                 <Title level={2} style={{ margin: 0 }}>
                     Academic Warnings
                 </Title>
                 <Text type="secondary">
-                    Track and manage academic warnings issued to students
+                    Track and manage academic warnings issued to students for violations
                 </Text>
             </div>
 
             {/* Stats Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card 
-                        hoverable 
-                        style={{ 
-                            borderTop: '4px solid #ff4d4f',
-                            borderRadius: '10px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                    <WarningOutlined /> Total Warnings
-                                </div>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                                    {totalWarnings}
-                                </div>
-                                {searchText && (
-                                    <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
-                                        From {warnings.length} total
+                {statsCards.map((card, index) => (
+                    <Col xs={24} sm={12} lg={8} key={index}>
+                        <Card 
+                            hoverable 
+                            style={{ 
+                                borderTop: `4px solid ${card.color}`,
+                                borderRadius: '10px',
+                                backgroundColor: card.bgColor
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                        {card.title}
                                     </div>
-                                )}
-                            </div>
-                            <div style={{ fontSize: '48px', color: '#ff4d4f' }}>
-                                <WarningOutlined />
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-                
-                <Col xs={24} sm={12} lg={8}>
-                    <Card 
-                        hoverable 
-                        style={{ 
-                            borderTop: '4px solid #faad14',
-                            borderRadius: '10px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                    <UserOutlined /> Students with Warnings
+                                    <div style={{ fontSize: '32px', fontWeight: 'bold', color: card.color }}>
+                                        {card.value}
+                                    </div>
+                                    {card.subtitle && (
+                                        <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                                            {card.subtitle}
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#faad14' }}>
-                                    {uniqueStudents}
+                                <div style={{ fontSize: '48px', color: card.color }}>
+                                    {card.icon}
                                 </div>
                             </div>
-                            <div style={{ fontSize: '48px', color: '#faad14' }}>
-                                <UserOutlined />
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
-                
-                <Col xs={24} sm={12} lg={8}>
-                    <Card 
-                        hoverable 
-                        style={{ 
-                            borderTop: '4px solid #1890ff',
-                            borderRadius: '10px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                    <UserOutlined /> Total Students
-                                </div>
-                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1890ff' }}>
-                                    {students.length}
-                                </div>
-                            </div>
-                            <div style={{ fontSize: '48px', color: '#1890ff' }}>
-                                <UserOutlined />
-                            </div>
-                        </div>
-                    </Card>
-                </Col>
+                        </Card>
+                    </Col>
+                ))}
             </Row>
 
-            {/* Controls */}
+            {/* Filters Card */}
             <Card style={{ marginBottom: 16, borderRadius: '10px' }}>
-                <Space wrap size="middle">
-                    <div>
+                <Space wrap size="middle" style={{ width: '100%' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Search
+                        </div>
+                        <Input
+                            placeholder="Search by student, rule, or description..."
+                            prefix={<SearchOutlined />}
+                            allowClear
+                            style={{ width: '100%' }}
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                        />
+                    </div>
+
+                    <div style={{ minWidth: 250 }}>
                         <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
                             Filter by Student
                         </div>
                         <Select
                             placeholder="All Students"
-                            style={{ width: 250 }}
+                            style={{ width: '100%' }}
                             allowClear
                             showSearch
                             optionFilterProp="children"
@@ -379,24 +406,12 @@ const AcademicWarnings = () => {
                         </Select>
                     </div>
 
-                    <div>
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
-                            Search
-                        </div>
-                        <Input
-                            placeholder="Search by student / rule / description..."
-                            prefix={<SearchOutlined />}
-                            allowClear
-                            style={{ width: 260 }}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                        />
-                    </div>
-
                     {(selectedStudent || searchText) && (
-                        <Button onClick={clearFilters}>
-                            Clear Filters
-                        </Button>
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Button onClick={clearFilters}>
+                                Clear Filters
+                            </Button>
+                        </div>
                     )}
                 </Space>
             </Card>
@@ -408,7 +423,10 @@ const AcademicWarnings = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center'
             }}>
-                <h3 style={{ margin: 0, fontWeight: 600 }}>⚠️ Warning Records</h3>
+                <h3 style={{ margin: 0, fontWeight: 600 }}>
+                    <WarningOutlined style={{ color: '#ff4d4f', marginRight: 8 }} />
+                    Warning Records
+                </h3>
                 <Space>
                     <Button
                         icon={<ReloadOutlined />}
@@ -432,7 +450,7 @@ const AcademicWarnings = () => {
                 </Space>
             </div>
 
-            {/* Table - showing filtered warnings */}
+            {/* Table */}
             <Table
                 columns={columns}
                 dataSource={filteredWarnings}
@@ -442,9 +460,9 @@ const AcademicWarnings = () => {
                     pageSize: 10,
                     showSizeChanger: true,
                     showTotal: (total) => `Total ${total} warnings`,
-                    pageSizeOptions: ['10', '20', '50'],
+                    pageSizeOptions: ['10', '20', '50', '100'],
                 }}
-                scroll={{ x: 1000 }}
+                scroll={{ x: 1100 }}
                 locale={{
                     emptyText: selectedStudent ? 'No warnings for this student' : 'No warnings found'
                 }}
@@ -452,7 +470,12 @@ const AcademicWarnings = () => {
 
             {/* Create Modal */}
             <Modal
-                title="⚠️ Issue Academic Warning"
+                title={
+                    <Space>
+                        <WarningOutlined style={{ color: '#ff4d4f' }} />
+                        <span>Issue Academic Warning</span>
+                    </Space>
+                }
                 open={isModalVisible}
                 onCancel={() => {
                     setIsModalVisible(false);
@@ -472,6 +495,7 @@ const AcademicWarnings = () => {
                             placeholder="Select student"
                             showSearch
                             optionFilterProp="children"
+                            size="large"
                             filterOption={(input, option) =>
                                 option.children.toLowerCase().includes(input.toLowerCase())
                             }
@@ -494,6 +518,7 @@ const AcademicWarnings = () => {
                             showSearch
                             allowClear
                             mode="combobox"
+                            size="large"
                             filterOption={(input, option) =>
                                 option.children.toLowerCase().includes(input.toLowerCase())
                             }
@@ -530,6 +555,7 @@ const AcademicWarnings = () => {
                         <DatePicker
                             style={{ width: '100%' }}
                             format="YYYY-MM-DD"
+                            size="large"
                         />
                     </Form.Item>
 
@@ -540,6 +566,7 @@ const AcademicWarnings = () => {
                             block
                             loading={submitLoading}
                             size="large"
+                            icon={<WarningOutlined />}
                         >
                             Issue Warning
                         </Button>
@@ -549,7 +576,12 @@ const AcademicWarnings = () => {
 
             {/* Edit Modal */}
             <Modal
-                title="✏️ Update Warning"
+                title={
+                    <Space>
+                        <EditOutlined style={{ color: '#1890ff' }} />
+                        <span>Update Warning</span>
+                    </Space>
+                }
                 open={isEditModalVisible}
                 onCancel={() => {
                     setIsEditModalVisible(false);
@@ -571,6 +603,7 @@ const AcademicWarnings = () => {
                             showSearch
                             allowClear
                             mode="combobox"
+                            size="large"
                         >
                             <Option value="Attendance Below 75%">Attendance Below 75%</Option>
                             <Option value="Failed in Multiple Subjects">Failed in Multiple Subjects</Option>
@@ -587,7 +620,12 @@ const AcademicWarnings = () => {
                         label="Detail Description"
                         rules={[{ required: true, message: 'Please enter description' }]}
                     >
-                        <TextArea rows={4} maxLength={500} showCount />
+                        <TextArea 
+                            rows={4} 
+                            maxLength={500} 
+                            showCount 
+                            placeholder="Update the warning description..."
+                        />
                     </Form.Item>
 
                     <Form.Item>
@@ -597,6 +635,7 @@ const AcademicWarnings = () => {
                             block
                             loading={submitLoading}
                             size="large"
+                            icon={<CheckCircleOutlined />}
                         >
                             Update Warning
                         </Button>

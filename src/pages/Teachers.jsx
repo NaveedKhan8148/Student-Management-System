@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, Space, Tag, Modal, Form, Select, message, Card, Row, Col, Spin } from 'antd';
-import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+    Table, Button, Input, Space, Tag, Modal, Form, Select, 
+    message, Card, Row, Col, Spin, Popconfirm, Tooltip, 
+    Avatar, Typography, Badge 
+} from 'antd';
+import { 
+    PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, 
+    ReloadOutlined, UserOutlined, MailOutlined, PhoneOutlined,
+    BookOutlined, IdcardOutlined, CalendarOutlined, SaveOutlined,
+    TeamOutlined, CheckCircleOutlined, CloseCircleOutlined
+} from '@ant-design/icons';
 import { teacherService } from '../services/teacherService';
 import { feesData } from '../data/fees';
 import { attendanceData } from '../data/attendance';
+import dayjs from 'dayjs';
 
+const { Title, Text } = Typography;
 const { Option } = Select;
 
 const Teachers = () => {
@@ -16,7 +27,6 @@ const Teachers = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = Form.useForm();
 
-    // Fetch teachers on component mount
     useEffect(() => {
         fetchTeachers();
     }, []);
@@ -26,7 +36,6 @@ const Teachers = () => {
         try {
             const response = await teacherService.getAllTeachers();
             
-            // Transform API response to match table structure
             const formattedTeachers = response.map((teacher) => ({
                 key: teacher._id,
                 _id: teacher._id,
@@ -34,7 +43,7 @@ const Teachers = () => {
                 contactNumber: teacher.contactNumber || '',
                 email: teacher.userId?.email || '',
                 subject: teacher.subject || '',
-                dateOfJoining: teacher.dateOfJoining ? new Date(teacher.dateOfJoining).toLocaleDateString() : '',
+                dateOfJoining: teacher.dateOfJoining || '',
                 cnicNumber: teacher.cnicNumber || '',
                 address: teacher.address || '',
                 status: teacher.userId?.status || 'ACTIVE',
@@ -44,10 +53,6 @@ const Teachers = () => {
             }));
             
             setTeachers(formattedTeachers);
-            
-            if (formattedTeachers.length === 0) {
-                message.info('No teachers found');
-            }
         } catch (error) {
             console.error('Error fetching teachers:', error);
             message.error(error.message || 'Failed to fetch teachers');
@@ -57,12 +62,24 @@ const Teachers = () => {
         }
     };
 
-    // Calculate statistics
+    // Filter teachers based on search
+    const filteredTeachers = useMemo(() => {
+        if (!searchText) return teachers;
+        
+        return teachers.filter((record) =>
+            (record.name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (record.email || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (record.subject || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (record.contactNumber || '').toLowerCase().includes(searchText.toLowerCase())
+        );
+    }, [teachers, searchText]);
+
+    // Statistics
     const totalTeachers = teachers.length;
     const activeTeachers = teachers.filter(t => t.status === 'ACTIVE').length;
     const inactiveTeachers = totalTeachers - activeTeachers;
 
-    // Static data for fees and attendance (same as students)
+    // Static data for fees and attendance
     const totalCollected = feesData
         .filter((item) => item.status === 'Paid')
         .reduce((sum, item) => sum + item.amount, 0);
@@ -74,36 +91,83 @@ const Teachers = () => {
     const totalPresent = attendanceData.filter((item) => item.status === 'Present').length;
     const totalAbsent = attendanceData.filter((item) => item.status === 'Absent').length;
 
+    // Stats Cards
+    const statsCards = [
+        { 
+            title: 'Total Teachers', 
+            value: totalTeachers, 
+            color: '#1890ff', 
+            bgColor: '#e6f7ff',
+            icon: <TeamOutlined />,
+            subtitle: 'Registered teachers'
+        },
+        { 
+            title: 'Active Teachers', 
+            value: activeTeachers, 
+            color: '#52c41a', 
+            bgColor: '#f6ffed',
+            icon: <CheckCircleOutlined />,
+            subtitle: 'Currently active'
+        },
+        { 
+            title: 'Inactive Teachers', 
+            value: inactiveTeachers, 
+            color: '#ff4d4f', 
+            bgColor: '#fff2f0',
+            icon: <CloseCircleOutlined />,
+            subtitle: 'Inactive accounts'
+        },
+    ];
+
     // Table columns
     const columns = [
         {
             title: 'Teacher Name',
-            dataIndex: 'name',
             key: 'name',
-            filteredValue: [searchText],
-            onFilter: (value, record) =>
-                String(record.name).toLowerCase().includes(value.toLowerCase()) ||
-                String(record.email).toLowerCase().includes(value.toLowerCase()) ||
-                String(record.subject).toLowerCase().includes(value.toLowerCase()) ||
-                String(record.contactNumber).toLowerCase().includes(value.toLowerCase()),
-            sorter: (a, b) => a.name.localeCompare(b.name),
+            sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
+            render: (_, record) => (
+                <Tooltip title={`ID: ${record._id}`}>
+                    <Space>
+                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                        <div>
+                            <div style={{ fontWeight: 500 }}>{record.name}</div>
+                            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{record.subject}</div>
+                        </div>
+                    </Space>
+                </Tooltip>
+            ),
         },
         {
             title: 'Email',
-            dataIndex: 'email',
             key: 'email',
-            sorter: (a, b) => a.email.localeCompare(b.email),
+            render: (_, record) => (
+                <Space>
+                    <MailOutlined style={{ color: '#8c8c8c' }} />
+                    <span>{record.email || '-'}</span>
+                </Space>
+            ),
+            sorter: (a, b) => (a.email || '').localeCompare(b.email || ''),
         },
         {
             title: 'Contact Number',
-            dataIndex: 'contactNumber',
             key: 'contactNumber',
-            sorter: (a, b) => String(a.contactNumber).localeCompare(String(b.contactNumber)),
+            render: (_, record) => (
+                <Space>
+                    <PhoneOutlined style={{ color: '#8c8c8c' }} />
+                    <span>{record.contactNumber || '-'}</span>
+                </Space>
+            ),
+            sorter: (a, b) => (a.contactNumber || '').localeCompare(b.contactNumber || ''),
         },
         {
             title: 'Subject',
             dataIndex: 'subject',
             key: 'subject',
+            render: (subject) => (
+                <Tag color="cyan" icon={<BookOutlined />}>
+                    {subject || '-'}
+                </Tag>
+            ),
             filters: [
                 { text: 'Mathematics', value: 'Mathematics' },
                 { text: 'Physics', value: 'Physics' },
@@ -113,18 +177,27 @@ const Teachers = () => {
                 { text: 'Computer Science', value: 'Computer Science' },
             ],
             onFilter: (value, record) => record.subject === value,
-            sorter: (a, b) => a.subject.localeCompare(b.subject),
+            sorter: (a, b) => (a.subject || '').localeCompare(b.subject || ''),
         },
         {
             title: 'CNIC Number',
-            dataIndex: 'cnicNumber',
             key: 'cnicNumber',
+            render: (_, record) => (
+                <Space>
+                    <IdcardOutlined style={{ color: '#8c8c8c' }} />
+                    <span>{record.cnicNumber || '-'}</span>
+                </Space>
+            ),
         },
         {
             title: 'Date of Joining',
-            dataIndex: 'dateOfJoining',
             key: 'dateOfJoining',
-            render: (date) => date || '-',
+            render: (_, record) => (
+                <Space>
+                    <CalendarOutlined style={{ color: '#8c8c8c' }} />
+                    <span>{record.dateOfJoining ? dayjs(record.dateOfJoining).format('YYYY-MM-DD') : '-'}</span>
+                </Space>
+            ),
             sorter: (a, b) => {
                 if (!a.dateOfJoining) return 1;
                 if (!b.dateOfJoining) return -1;
@@ -135,9 +208,10 @@ const Teachers = () => {
             title: 'Status',
             key: 'status',
             render: (_, record) => (
-                <Tag color={record.status === 'ACTIVE' ? 'green' : 'red'}>
-                    {record.status}
-                </Tag>
+                <Badge 
+                    color={record.status === 'ACTIVE' ? '#52c41a' : '#ff4d4f'}
+                    text={record.status || 'ACTIVE'}
+                />
             ),
             filters: [
                 { text: 'Active', value: 'ACTIVE' },
@@ -148,17 +222,28 @@ const Teachers = () => {
         {
             title: 'Action',
             key: 'action',
+            width: 120,
             render: (_, record) => (
-                <Space size="middle">
-                    <Button
-                        icon={<EditOutlined />}
-                        onClick={() => handleEdit(record)}
-                    />
-                    <Button
-                        icon={<DeleteOutlined />}
-                        danger
-                        onClick={() => handleDelete(record)}
-                    />
+                <Space size="small">
+                    <Tooltip title="Edit Teacher">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
+                    <Popconfirm
+                        title="Delete Teacher"
+                        description={`Are you sure you want to delete ${record.name}?`}
+                        onConfirm={() => handleDelete(record)}
+                        okText="Yes"
+                        cancelText="No"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <Tooltip title="Delete Teacher">
+                            <Button icon={<DeleteOutlined />} size="small" danger />
+                        </Tooltip>
+                    </Popconfirm>
                 </Space>
             ),
         },
@@ -172,7 +257,7 @@ const Teachers = () => {
             contactNumber: record.contactNumber,
             email: record.email,
             subject: record.subject,
-            dateOfJoining: record.dateOfJoining,
+            dateOfJoining: record.dateOfJoining ? dayjs(record.dateOfJoining).format('YYYY-MM-DD') : '',
             cnicNumber: record.cnicNumber,
             address: record.address,
             status: record.status,
@@ -264,63 +349,113 @@ const Teachers = () => {
         form.resetFields();
     };
 
+    const clearSearch = () => {
+        setSearchText('');
+    };
+
     return (
         <div>
-            {/* Stats Cards - Same design as Students */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Total Teachers" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#1890ff' }}>{totalTeachers}</div>
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Active Teachers" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#52c41a' }}>{activeTeachers}</div>
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable className="hover-card" title="Inactive Teachers" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#ff4d4f' }}>{inactiveTeachers}</div>
-                    </Card>
-                </Col>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    Teacher Management
+                </Title>
+                <Text type="secondary">
+                    Manage teacher profiles, assign subjects, and track teacher information
+                </Text>
+            </div>
+
+            {/* Stats Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                {statsCards.map((card, index) => (
+                    <Col xs={24} sm={12} lg={6} key={index}>
+                        <Card 
+                            hoverable 
+                            style={{ 
+                                borderTop: `4px solid ${card.color}`,
+                                borderRadius: '10px',
+                                backgroundColor: card.bgColor
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                        {card.title}
+                                    </div>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: card.color }}>
+                                        {card.value}
+                                    </div>
+                                    {card.subtitle && (
+                                        <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                                            {card.subtitle}
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ fontSize: '40px', color: card.color }}>
+                                    {card.icon}
+                                </div>
+                            </div>
+                        </Card>
+                    </Col>
+                ))}
             </Row>
 
-            {/* Search and Add Button */}
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                <Input
-                    placeholder="Search by name, email, subject or contact..."
-                    prefix={<SearchOutlined />}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    style={{ width: 320 }}
-                    allowClear
-                />
-                <Space>
-                    <Button
-                        icon={<ReloadOutlined />}
-                        onClick={fetchTeachers}
-                        loading={loading}
-                    >
-                        Refresh
-                    </Button>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                            setEditingTeacher(null);
-                            form.resetFields();
-                            form.setFieldsValue({ status: 'ACTIVE' });
-                            setIsModalVisible(true);
-                        }}
-                    >
-                        Add Teacher
-                    </Button>
+            {/* Filters Card */}
+            <Card style={{ marginBottom: 16, borderRadius: '10px' }}>
+                <Space wrap size="middle" style={{ width: '100%' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            Search
+                        </div>
+                        <Input
+                            placeholder="Search by name, email, subject or contact number..."
+                            prefix={<SearchOutlined />}
+                            onChange={(e) => setSearchText(e.target.value)}
+                            allowClear
+                            value={searchText}
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+
+                    {searchText && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                            <Button onClick={clearSearch}>
+                                Clear Search
+                            </Button>
+                        </div>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={fetchTeachers}
+                            loading={loading}
+                        >
+                            Refresh
+                        </Button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                                setEditingTeacher(null);
+                                form.resetFields();
+                                form.setFieldsValue({ status: 'ACTIVE' });
+                                setIsModalVisible(true);
+                            }}
+                        >
+                            Add Teacher
+                        </Button>
+                    </div>
                 </Space>
-            </div>
+            </Card>
 
             {/* Table */}
             <Table
                 columns={columns}
-                dataSource={teachers}
+                dataSource={filteredTeachers}
                 rowKey="_id"
                 loading={loading}
                 pagination={{
@@ -334,7 +469,12 @@ const Teachers = () => {
 
             {/* Add/Edit Modal */}
             <Modal
-                title={editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}
+                title={
+                    <Space>
+                        {editingTeacher ? <EditOutlined style={{ color: '#1890ff' }} /> : <PlusOutlined style={{ color: '#1890ff' }} />}
+                        <span>{editingTeacher ? 'Edit Teacher' : 'Add New Teacher'}</span>
+                    </Space>
+                }
                 open={isModalVisible}
                 onCancel={handleCancel}
                 footer={null}
@@ -354,7 +494,11 @@ const Teachers = () => {
                         label="Teacher Name"
                         rules={[{ required: true, message: 'Please enter teacher name' }]}
                     >
-                        <Input placeholder="e.g. Prof. John Smith" />
+                        <Input 
+                            placeholder="e.g. Prof. John Smith" 
+                            size="large"
+                            prefix={<UserOutlined style={{ color: '#8c8c8c' }} />}
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -366,7 +510,11 @@ const Teachers = () => {
                         ]}
                         extra="This email will be used for login"
                     >
-                        <Input placeholder="teacher@school.edu" />
+                        <Input 
+                            placeholder="teacher@school.edu" 
+                            size="large"
+                            prefix={<MailOutlined style={{ color: '#8c8c8c' }} />}
+                        />
                     </Form.Item>
 
                     {!editingTeacher && (
@@ -379,7 +527,7 @@ const Teachers = () => {
                             ]}
                             extra="Minimum 6 characters"
                         >
-                            <Input.Password placeholder="Enter login password" />
+                            <Input.Password placeholder="Enter login password" size="large" />
                         </Form.Item>
                     )}
 
@@ -389,18 +537,20 @@ const Teachers = () => {
                             label="Password"
                             extra="Leave blank to keep current password"
                         >
-                            <Input.Password placeholder="Enter new password (optional)" />
+                            <Input.Password placeholder="Enter new password (optional)" size="large" />
                         </Form.Item>
                     )}
 
                     <Form.Item
                         name="contactNumber"
                         label="Contact Number"
-                        rules={[
-                            { required: true, message: 'Please enter contact number' },
-                        ]}
+                        rules={[{ required: true, message: 'Please enter contact number' }]}
                     >
-                        <Input placeholder="e.g. 0300-1234567" />
+                        <Input 
+                            placeholder="e.g. 0300-1234567" 
+                            size="large"
+                            prefix={<PhoneOutlined style={{ color: '#8c8c8c' }} />}
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -412,30 +562,33 @@ const Teachers = () => {
                             placeholder="Select subject"
                             showSearch
                             optionFilterProp="children"
+                            size="large"
                         >
-                            <Option value="Mathematics">Mathematics</Option>
-                            <Option value="Physics">Physics</Option>
-                            <Option value="Chemistry">Chemistry</Option>
-                            <Option value="Biology">Biology</Option>
-                            <Option value="English">English</Option>
-                            <Option value="Urdu">Urdu</Option>
-                            <Option value="Computer Science">Computer Science</Option>
-                            <Option value="Business Administration">Business Administration</Option>
-                            <Option value="Economics">Economics</Option>
-                            <Option value="History">History</Option>
-                            <Option value="Geography">Geography</Option>
+                            <Option value="Mathematics">📐 Mathematics</Option>
+                            <Option value="Physics">⚡ Physics</Option>
+                            <Option value="Chemistry">🧪 Chemistry</Option>
+                            <Option value="Biology">🧬 Biology</Option>
+                            <Option value="English">📖 English</Option>
+                            <Option value="Urdu">📝 Urdu</Option>
+                            <Option value="Computer Science">💻 Computer Science</Option>
+                            <Option value="Business Administration">📊 Business Administration</Option>
+                            <Option value="Economics">💰 Economics</Option>
+                            <Option value="History">🏛️ History</Option>
+                            <Option value="Geography">🌍 Geography</Option>
                         </Select>
                     </Form.Item>
 
                     <Form.Item
                         name="cnicNumber"
                         label="CNIC Number"
-                        rules={[
-                            { required: true, message: 'Please enter CNIC number' },
-                        ]}
+                        rules={[{ required: true, message: 'Please enter CNIC number' }]}
                         extra="Format: 12345-6789012-3"
                     >
-                        <Input placeholder="12345-6789012-3" />
+                        <Input 
+                            placeholder="12345-6789012-3" 
+                            size="large"
+                            prefix={<IdcardOutlined style={{ color: '#8c8c8c' }} />}
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -443,7 +596,11 @@ const Teachers = () => {
                         label="Date of Joining"
                         rules={[{ required: true, message: 'Please enter date of joining' }]}
                     >
-                        <Input type="date" />
+                        <Input 
+                            type="date" 
+                            size="large"
+                            prefix={<CalendarOutlined style={{ color: '#8c8c8c' }} />}
+                        />
                     </Form.Item>
 
                     <Form.Item
@@ -459,7 +616,7 @@ const Teachers = () => {
                         label="Status"
                         rules={[{ required: true, message: 'Please select status' }]}
                     >
-                        <Select placeholder="Select status">
+                        <Select placeholder="Select status" size="large">
                             <Option value="ACTIVE">
                                 <Space>
                                     <Tag color="green">ACTIVE</Tag>
@@ -482,6 +639,7 @@ const Teachers = () => {
                             block
                             loading={submitLoading}
                             size="large"
+                            icon={<SaveOutlined />}
                         >
                             {editingTeacher ? 'Update Teacher' : 'Add Teacher'}
                         </Button>
