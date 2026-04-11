@@ -283,16 +283,6 @@ const Teachers = () => {
                         <div style={{ fontSize: 28, fontWeight: 700, color: '#ff4d4f' }}>{inactiveTeachers}</div>
                     </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable title="Total Present" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#52c41a' }}>{totalPresent}</div>
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={8}>
-                    <Card hoverable title="Total Absent" bordered>
-                        <div style={{ fontSize: 28, fontWeight: 700, color: '#ff4d4f' }}>{totalAbsent}</div>
-                    </Card>
-                </Col>
             </Row>
 
             {/* Search and Add Button */}
