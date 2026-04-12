@@ -1,8 +1,15 @@
 import React from 'react';
-import { Card, Descriptions, Typography, Spin, Tag, Avatar } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
+import { Card, Descriptions, Typography, Spin, Tag, Avatar, Row, Col, Statistic, Space, Badge, Tooltip } from 'antd';
+import { 
+    UserOutlined, MailOutlined, BookOutlined, CalendarOutlined, 
+    HomeOutlined, CheckCircleOutlined, CloseCircleOutlined,
+    IdcardOutlined, TeamOutlined, PhoneOutlined
+} from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 const { Title, Text } = Typography;
 
@@ -21,57 +28,256 @@ const StudentProfile = () => {
         return <Text type="danger">Profile not found.</Text>;
     }
 
+    // Calculate account age
+    const accountAge = profile.createdAt ? dayjs(profile.createdAt).fromNow() : null;
+    const isActive = user?.status === 'ACTIVE';
+
     return (
         <div>
-            <Title level={2}>My Profile</Title>
-            <Text type="secondary">Read-only. Changes are made by administrators only.</Text>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    My Profile
+                </Title>
+                <Text type="secondary">
+                    View your personal and academic information
+                </Text>
+            </div>
 
-            {/* ── Avatar + name banner ── */}
-            <Card style={{ marginTop: 16, marginBottom: 16, textAlign: 'center' }}>
-                <Avatar
-                    size={80}
-                    icon={<UserOutlined />}
-                    style={{ backgroundColor: '#1890ff', marginBottom: 12 }}
-                />
-                <div style={{ fontSize: 20, fontWeight: 700 }}>{profile.studentName}</div>
-                <div style={{ color: '#8c8c8c' }}>{profile.rollNo}</div>
-                <Tag
-                    color={user?.status === 'ACTIVE' ? 'green' : 'red'}
-                    style={{ marginTop: 8 }}
-                >
-                    {user?.status || 'ACTIVE'}
-                </Tag>
+            {/* Profile Header Card */}
+            <Card 
+                style={{ marginBottom: 24, borderRadius: '10px' }}
+                className="hover-card"
+            >
+                <Row gutter={[24, 16]} align="middle">
+                    <Col xs={24} sm={6} style={{ textAlign: 'center' }}>
+                        <Avatar
+                            size={100}
+                            icon={<UserOutlined />}
+                            style={{ backgroundColor: '#1890ff', marginBottom: 12 }}
+                        />
+                        <div>
+                            <Badge 
+                                status={isActive ? 'success' : 'error'}
+                                text={isActive ? 'Active Account' : 'Inactive Account'}
+                            />
+                        </div>
+                    </Col>
+                    <Col xs={24} sm={18}>
+                        <Row gutter={[16, 8]}>
+                            <Col xs={24}>
+                                <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
+                                    {profile.studentName}
+                                </div>
+                                <Space wrap>
+                                    <Tag color="blue" icon={<IdcardOutlined />}>
+                                        {profile.rollNo}
+                                    </Tag>
+                                    <Tag color="cyan" icon={<BookOutlined />}>
+                                        {profile.classId?.name || 'No Class Assigned'}
+                                    </Tag>
+                                    {accountAge && (
+                                        <Tag color="purple" icon={<CalendarOutlined />}>
+                                            Joined {accountAge}
+                                        </Tag>
+                                    )}
+                                </Space>
+                            </Col>
+                            <Col xs={24} sm={12}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Email Address</Text>
+                                <div style={{ fontWeight: 500 }}>
+                                    <MailOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                                    {profile.userId?.email || user?.email || '-'}
+                                </div>
+                            </Col>
+                            <Col xs={24} sm={12}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Phone Number</Text>
+                                <div style={{ fontWeight: 500 }}>
+                                    <PhoneOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                                    {profile.phoneNumber || 'Not provided'}
+                                </div>
+                            </Col>
+                            <Col xs={24}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Address</Text>
+                                <div style={{ fontWeight: 500 }}>
+                                    <HomeOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                                    {profile.address || 'Not provided'}
+                                </div>
+                            </Col>
+                        </Row>
+                    </Col>
+                </Row>
             </Card>
 
-            {/* ── Details ── */}
-            <Card>
-                <Descriptions bordered column={1}>
-                    <Descriptions.Item label="Full Name">
-                        {profile.studentName}
+            {/* Statistics Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: '4px solid #1890ff',
+                            borderRadius: '10px',
+                            backgroundColor: '#e6f7ff'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Student ID
+                                </div>
+                                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1890ff' }}>
+                                    {profile._id?.slice(-8) || 'N/A'}
+                                </div>
+                            </div>
+                            <IdcardOutlined style={{ fontSize: '40px', color: '#1890ff' }} />
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: '4px solid #52c41a',
+                            borderRadius: '10px',
+                            backgroundColor: '#f6ffed'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Class & Section
+                                </div>
+                                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#52c41a' }}>
+                                    {profile.classId?.name || 'N/A'}
+                                </div>
+                            </div>
+                            <TeamOutlined style={{ fontSize: '40px', color: '#52c41a' }} />
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: '4px solid #faad14',
+                            borderRadius: '10px',
+                            backgroundColor: '#fff7e6'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Date of Joining
+                                </div>
+                                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#faad14' }}>
+                                    {profile.dateOfJoining
+                                        ? dayjs(profile.dateOfJoining).format('YYYY-MM-DD')
+                                        : '-'}
+                                </div>
+                            </div>
+                            <CalendarOutlined style={{ fontSize: '40px', color: '#faad14' }} />
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: `4px solid ${isActive ? '#52c41a' : '#ff4d4f'}`,
+                            borderRadius: '10px',
+                            backgroundColor: isActive ? '#f6ffed' : '#fff2f0'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Account Status
+                                </div>
+                                <div style={{ fontSize: '20px', fontWeight: 'bold', color: isActive ? '#52c41a' : '#ff4d4f' }}>
+                                    {user?.status || 'ACTIVE'}
+                                </div>
+                            </div>
+                            {isActive ? (
+                                <CheckCircleOutlined style={{ fontSize: '40px', color: '#52c41a' }} />
+                            ) : (
+                                <CloseCircleOutlined style={{ fontSize: '40px', color: '#ff4d4f' }} />
+                            )}
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Detailed Information Card */}
+            <Card 
+                title={
+                    <Space>
+                        <UserOutlined style={{ color: '#1890ff' }} />
+                        <span>Detailed Information</span>
+                    </Space>
+                }
+                style={{ borderRadius: '10px' }}
+            >
+                <Descriptions bordered column={{ xs: 1, sm: 2, md: 2 }} labelStyle={{ fontWeight: 600 }}>
+                    <Descriptions.Item label="Full Name" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Space>
+                            <UserOutlined style={{ color: '#1890ff' }} />
+                            {profile.studentName}
+                        </Space>
                     </Descriptions.Item>
-                    <Descriptions.Item label="Roll Number">
-                        {profile.rollNo}
+                    <Descriptions.Item label="Roll Number" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Tag color="blue">{profile.rollNo}</Tag>
                     </Descriptions.Item>
-                    <Descriptions.Item label="Email">
-                        {profile.userId?.email || user?.email || '-'}
+                    <Descriptions.Item label="Email" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Space>
+                            <MailOutlined style={{ color: '#1890ff' }} />
+                            {profile.userId?.email || user?.email || '-'}
+                        </Space>
                     </Descriptions.Item>
-                    <Descriptions.Item label="Class">
-                        {profile.classId?.name || '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Date of Joining">
-                        {profile.dateOfJoining
-                            ? dayjs(profile.dateOfJoining).format('YYYY-MM-DD')
-                            : '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Address">
-                        {profile.address || '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Account Status">
-                        <Tag color={user?.status === 'ACTIVE' ? 'green' : 'red'}>
-                            {user?.status || 'ACTIVE'}
+                    <Descriptions.Item label="Class" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Tag color="cyan" icon={<BookOutlined />}>
+                            {profile.classId?.name || '-'}
                         </Tag>
                     </Descriptions.Item>
+                    <Descriptions.Item label="Date of Joining" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Space>
+                            <CalendarOutlined style={{ color: '#faad14' }} />
+                            {profile.dateOfJoining
+                                ? dayjs(profile.dateOfJoining).format('YYYY-MM-DD')
+                                : '-'}
+                        </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Account Created" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Tooltip title={profile.createdAt ? dayjs(profile.createdAt).format('YYYY-MM-DD HH:mm:ss') : 'N/A'}>
+                            <Space>
+                                <CalendarOutlined style={{ color: '#1890ff' }} />
+                                {profile.createdAt ? dayjs(profile.createdAt).format('YYYY-MM-DD') : '-'}
+                            </Space>
+                        </Tooltip>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Address" span={2} labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Space>
+                            <HomeOutlined style={{ color: '#1890ff' }} />
+                            {profile.address || 'Not provided'}
+                        </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Account Status" span={2} labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Badge 
+                            status={isActive ? 'success' : 'error'}
+                            text={isActive ? 'Active - You can access all features' : 'Inactive - Please contact administrator'}
+                        />
+                    </Descriptions.Item>
                 </Descriptions>
+            </Card>
+
+            {/* Footer Note */}
+            <Card 
+                style={{ marginTop: 16, borderRadius: '10px', backgroundColor: '#f0f5ff' }}
+                bodyStyle={{ padding: '12px 16px' }}
+            >
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                    <CheckCircleOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                    This information is read-only. For any changes or corrections, please contact the school administration.
+                </Text>
             </Card>
         </div>
     );
