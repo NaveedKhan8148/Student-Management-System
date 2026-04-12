@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -33,10 +32,9 @@ import ParentAttendance from './pages/ParentAttendance';
 import ParentFees from './pages/ParentFees';
 import ParentResults from './pages/ParentResults';
 import ParentTimetable from './pages/ParentTimetable';
-import Classes from './pages/Classes';  // <-- ADD THIS IMPORT
+import Classes from './pages/Classes';
 import './App.css';
 
-// Fixed RoleBasedRedirect component to prevent unnecessary re-renders
 const RoleBasedRedirect = () => {
     const { user, loading } = useAuth();
     const navigate = useNavigate();
@@ -46,24 +44,16 @@ const RoleBasedRedirect = () => {
             navigate('/login', { replace: true });
             return;
         }
-
         if (!loading && user) {
-            // Determine redirect path based on role
+            const role = user.role?.toUpperCase();
             let redirectPath = '/dashboard';
-            if (user.role === 'student') {
-                redirectPath = '/student/timetable';
-            } else if (user.role === 'teacher') {
-                redirectPath = '/teacher/attendance';
-            } else if (user.role === 'parent') {
-                redirectPath = '/parent/overview';
-            }
-            
-            // Use navigate instead of Navigate component to avoid re-renders
+            if (role === 'STUDENT') redirectPath = '/student/timetable';
+            else if (role === 'TEACHER') redirectPath = '/teacher/classes';
+            else if (role === 'PARENT') redirectPath = '/parent/overview';
             navigate(redirectPath, { replace: true });
         }
     }, [user, loading, navigate]);
 
-    // Show nothing while redirecting
     return null;
 };
 
@@ -77,18 +67,16 @@ function App() {
     );
 }
 
-// Separate component to use useAuth hook inside BrowserRouter
 const AppRoutes = () => {
-    const { user, loading } = useAuth();
+    const { loading } = useAuth();
 
-    // Show loading spinner while checking auth
     if (loading) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '100vh' 
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '100vh',
             }}>
                 <div>Loading...</div>
             </div>
@@ -97,87 +85,56 @@ const AppRoutes = () => {
 
     return (
         <Routes>
-            {/* Public routes */}
+            {/* Public */}
             <Route path="/login" element={<Login />} />
-            
-            {/* Root route - redirect based on auth status */}
-            <Route 
-                path="/" 
-                element={
-                    !user ? <Navigate to="/login" replace /> : <RoleBasedRedirect />
-                } 
-            />
+            <Route path="/" element={<RoleBasedRedirect />} />
 
-            {/* Admin routes - only accessible by admin */}
-            <Route
-                element={
-                    <ProtectedRoute allowedRoles={['admin']}>
-                        <MainLayout />
-                    </ProtectedRoute>
-                }
-            >
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="students" element={<Students />} />
-                <Route path="teachers" element={<Teachers />} />
-                <Route path="parents" element={<Parents />} />
-                <Route path="classes" element={<Classes />} />  {/* <-- ADD THIS ROUTE */}
+            {/* Admin — role stored as ADMIN in DB */}
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN']}><MainLayout /></ProtectedRoute>}>
+                <Route path="dashboard"  element={<Dashboard />} />
+                <Route path="students"   element={<Students />} />
+                <Route path="teachers"   element={<Teachers />} />
+                <Route path="parents"    element={<Parents />} />
+                <Route path="classes"    element={<Classes />} />
                 <Route path="attendance" element={<Attendance />} />
-                <Route path="fees" element={<Fees />} />
-                <Route path="timetable" element={<Timetable />} />
-                <Route path="results" element={<Results />} />
-                <Route path="warnings" element={<AcademicWarnings />} />
-                <Route path="approvals" element={<ApprovalWorkflows />} />
+                <Route path="fees"       element={<Fees />} />
+                <Route path="timetable"  element={<Timetable />} />
+                <Route path="results"    element={<Results />} />
+                <Route path="warnings"   element={<AcademicWarnings />} />
+                <Route path="approvals"  element={<ApprovalWorkflows />} />
             </Route>
 
-            {/* Teacher routes - only accessible by teacher */}
-            <Route
-                element={
-                    <ProtectedRoute allowedRoles={['teacher']}>
-                        <TeacherLayout />
-                    </ProtectedRoute>
-                }
-            >
-                <Route path="teacher" element={<Navigate to="/teacher/attendance" replace />} />
-                <Route path="teacher/attendance" element={<TeacherClasses />} />
-                <Route path="teacher/classes/:classKey/attendance" element={<TeacherClassAttendance />} />
-                <Route path="teacher/classes/:classKey/results" element={<TeacherClassResults />} />
-                <Route path="teacher/classes/:classKey/timetable" element={<TeacherClassTimetable />} />
+            {/* Teacher — role stored as TEACHER in DB */}
+            <Route element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherLayout /></ProtectedRoute>}>
+                <Route path="teacher" element={<Navigate to="/teacher/classes" replace />} />
+                <Route path="teacher/classes" element={<TeacherClasses />} />
+                {/* ✅ using :classId (MongoDB _id) instead of :classKey */}
+                <Route path="teacher/classes/:classId/attendance" element={<TeacherClassAttendance />} />
+                <Route path="teacher/classes/:classId/results"    element={<TeacherClassResults />} />
+                <Route path="teacher/classes/:classId/timetable"  element={<TeacherClassTimetable />} />
             </Route>
 
-            {/* Student routes - only accessible by student */}
-            <Route
-                element={
-                    <ProtectedRoute allowedRoles={['student']}>
-                        <StudentLayout />
-                    </ProtectedRoute>
-                }
-            >
+            {/* Student — role stored as STUDENT in DB */}
+            <Route element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentLayout /></ProtectedRoute>}>
                 <Route path="student" element={<Navigate to="/student/timetable" replace />} />
-                <Route path="student/profile" element={<StudentProfile />} />
-                <Route path="student/timetable" element={<StudentTimetable />} />
+                <Route path="student/profile"    element={<StudentProfile />} />
+                <Route path="student/timetable"  element={<StudentTimetable />} />
                 <Route path="student/attendance" element={<StudentAttendance />} />
-                <Route path="student/fees" element={<StudentFees />} />
-                <Route path="student/results" element={<StudentResults />} />
-                <Route path="student/news" element={<StudentNews />} />
+                <Route path="student/fees"       element={<StudentFees />} />
+                <Route path="student/results"    element={<StudentResults />} />
+                <Route path="student/news"       element={<StudentNews />} />
             </Route>
 
-            {/* Parent routes - only accessible by parent */}
-            <Route
-                element={
-                    <ProtectedRoute allowedRoles={['parent']}>
-                        <ParentLayout />
-                    </ProtectedRoute>
-                }
-            >
+            {/* Parent — role stored as PARENT in DB */}
+            <Route element={<ProtectedRoute allowedRoles={['PARENT']}><ParentLayout /></ProtectedRoute>}>
                 <Route path="parent" element={<Navigate to="/parent/overview" replace />} />
-                <Route path="parent/overview" element={<ParentOverview />} />
-                <Route path="parent/attendance" element={<ParentAttendance />} />
-                <Route path="parent/fees" element={<ParentFees />} />
-                <Route path="parent/results" element={<ParentResults />} />
-                <Route path="parent/timetable" element={<ParentTimetable />} />
+                <Route path="parent/overview"    element={<ParentOverview />} />
+                <Route path="parent/attendance"  element={<ParentAttendance />} />
+                <Route path="parent/fees"        element={<ParentFees />} />
+                <Route path="parent/results"     element={<ParentResults />} />
+                <Route path="parent/timetable"   element={<ParentTimetable />} />
             </Route>
 
-            {/* Catch all - redirect to login */}
             <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
     );
