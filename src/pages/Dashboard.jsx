@@ -1,110 +1,385 @@
-import React from 'react';
-import { Card, Col, Row, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Col, Row, Typography, Spin, Statistic, Button, Space, Tooltip, Badge } from 'antd';
 import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    Cell,
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+    Legend, ResponsiveContainer, LineChart, Line,
+    PieChart, Pie, Cell,
 } from 'recharts';
 import {
-    attendanceTrendByClass,
-    resultComparisonSemesters,
-    feeCollectionVsPending,
-    performanceDistribution,
-} from '../data/analytics';
+    ReloadOutlined, TeamOutlined, BookOutlined,
+    DollarOutlined, WarningOutlined, UserOutlined,
+    RiseOutlined, FallOutlined, TrophyOutlined,
+    CheckCircleOutlined, CloseCircleOutlined
+} from '@ant-design/icons';
+import axios from 'axios';
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
 
-const COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f'];
+const COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2'];
+
+// Small reusable chart card with loading state
+const ChartCard = ({ title, loading, children }) => (
+    <Card 
+        className="hover-card" 
+        title={title}
+        style={{ 
+            borderRadius: '10px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+        }}
+    >
+        {loading ? (
+            <div style={{ height: 320, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Spin size="large" />
+            </div>
+        ) : (
+            children
+        )}
+    </Card>
+);
+
+// Stats Card Component
+const StatsCard = ({ title, value, icon, color, bgColor, subtitle, loading }) => (
+    <Card 
+        hoverable 
+        style={{ 
+            borderTop: `4px solid ${color}`,
+            borderRadius: '10px',
+            backgroundColor: bgColor,
+            height: '100%'
+        }}
+        loading={loading}
+    >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px', fontWeight: 500 }}>
+                    {title}
+                </div>
+                <div style={{ fontSize: '32px', fontWeight: 'bold', color: color }}>
+                    {value}
+                </div>
+                {subtitle && (
+                    <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                        {subtitle}
+                    </div>
+                )}
+            </div>
+            <div style={{ fontSize: '48px', color: color }}>
+                {icon}
+            </div>
+        </div>
+    </Card>
+);
 
 const Dashboard = () => {
+    // Chart data
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [semesterData, setSemesterData] = useState([]);
+    const [feeData, setFeeData] = useState([]);
+    const [distributionData, setDistributionData] = useState([]);
+
+    // Summary stats
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [totalTeachers, setTotalTeachers] = useState(0);
+    const [totalClasses, setTotalClasses] = useState(0);
+    const [totalWarnings, setTotalWarnings] = useState(0);
+
+    // Loading flags
+    const [loadingAttendance, setLoadingAttendance] = useState(false);
+    const [loadingSemester, setLoadingSemester] = useState(false);
+    const [loadingFees, setLoadingFees] = useState(false);
+    const [loadingDistribution, setLoadingDistribution] = useState(false);
+    const [loadingStats, setLoadingStats] = useState(false);
+
+    useEffect(() => {
+        fetchAll();
+    }, []);
+
+    const fetchAll = () => {
+        fetchAttendance();
+        fetchSemesters();
+        fetchFees();
+        fetchDistribution();
+        fetchSummaryStats();
+    };
+
+    const fetchAttendance = async () => {
+        setLoadingAttendance(true);
+        try {
+            const res = await axios.get('/api/v1/analytics/attendance-by-class');
+            setAttendanceData(res.data.data || []);
+        } catch {
+            setAttendanceData([]);
+        } finally {
+            setLoadingAttendance(false);
+        }
+    };
+
+    const fetchSemesters = async () => {
+        setLoadingSemester(true);
+        try {
+            const res = await axios.get('/api/v1/analytics/results-by-semester');
+            setSemesterData(res.data.data || []);
+        } catch {
+            setSemesterData([]);
+        } finally {
+            setLoadingSemester(false);
+        }
+    };
+
+    const fetchFees = async () => {
+        setLoadingFees(true);
+        try {
+            const res = await axios.get('/api/v1/analytics/fee-collection');
+            setFeeData(res.data.data || []);
+        } catch {
+            setFeeData([]);
+        } finally {
+            setLoadingFees(false);
+        }
+    };
+
+    const fetchDistribution = async () => {
+        setLoadingDistribution(true);
+        try {
+            const res = await axios.get('/api/v1/analytics/performance-distribution');
+            setDistributionData(res.data.data || []);
+        } catch {
+            setDistributionData([]);
+        } finally {
+            setLoadingDistribution(false);
+        }
+    };
+
+    const fetchSummaryStats = async () => {
+        setLoadingStats(true);
+        try {
+            const [students, teachers, classes, warnings] = await Promise.all([
+                axios.get('/api/v1/students/'),
+                axios.get('/api/v1/teachers/'),
+                axios.get('/api/v1/classes/'),
+                axios.get('/api/v1/warnings/'),
+            ]);
+            setTotalStudents(students.data.data?.length || 0);
+            setTotalTeachers(teachers.data.data?.length || 0);
+            setTotalClasses(classes.data.data?.length || 0);
+            setTotalWarnings(warnings.data.data?.length || 0);
+        } catch {
+            // silent
+        } finally {
+            setLoadingStats(false);
+        }
+    };
+
+    const weekKeys = attendanceData.length > 0
+        ? Object.keys(attendanceData[0]).filter((k) => k !== 'className')
+        : ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+
+    const weekColors = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f'];
+
+    const EmptyChart = ({ message = 'No data available yet' }) => (
+        <div style={{
+            height: 300, display: 'flex', justifyContent: 'center',
+            alignItems: 'center', color: '#8c8c8c', flexDirection: 'column', gap: 8,
+        }}>
+            <div style={{ fontSize: 48 }}>📊</div>
+            <div>{message}</div>
+        </div>
+    );
+
+    // Stats Cards Data
+    const statsCards = [
+        {
+            title: 'Total Students',
+            value: totalStudents,
+            icon: <TeamOutlined />,
+            color: '#1890ff',
+            bgColor: '#e6f7ff',
+            subtitle: 'Enrolled students'
+        },
+        {
+            title: 'Total Teachers',
+            value: totalTeachers,
+            icon: <UserOutlined />,
+            color: '#52c41a',
+            bgColor: '#f6ffed',
+            subtitle: 'Active faculty'
+        },
+        {
+            title: 'Total Classes',
+            value: totalClasses,
+            icon: <BookOutlined />,
+            color: '#faad14',
+            bgColor: '#fff7e6',
+            subtitle: 'Active classes'
+        },
+        {
+            title: 'Academic Warnings',
+            value: totalWarnings,
+            icon: <WarningOutlined />,
+            color: '#ff4d4f',
+            bgColor: '#fff2f0',
+            subtitle: 'Issued warnings'
+        },
+    ];
+
     return (
         <div>
-            <Title level={2}>Academic analytics dashboard</Title>
-            <Paragraph type="secondary">
-                Institutional summaries for decision support (static demo data — no live server).
-            </Paragraph>
+            {/* Header */}
+            <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                <div>
+                    <Title level={2} style={{ margin: 0, fontWeight: 600 }}>
+                        Academic Analytics Dashboard
+                    </Title>
+                    <Text type="secondary" style={{ fontSize: 16 }}>
+                        Institutional summaries for decision support — live data
+                    </Text>
+                </div>
+                <Button 
+                    type="primary" 
+                    icon={<ReloadOutlined />} 
+                    onClick={fetchAll}
+                    size="large"
+                >
+                    Refresh All
+                </Button>
+            </div>
 
+            {/* Summary Stats Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                {statsCards.map((card, index) => (
+                    <Col xs={24} sm={12} lg={6} key={index}>
+                        <StatsCard {...card} loading={loadingStats} />
+                    </Col>
+                ))}
+            </Row>
+
+            {/* Charts Section */}
             <Row gutter={[16, 16]}>
+                {/* Chart 1 — Attendance trends by class */}
                 <Col xs={24} lg={12}>
-                    <Card className="hover-card" title="Attendance trends by class">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={attendanceTrendByClass}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="className" />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="week1" name="Week 1" fill="#8884d8" />
-                                <Bar dataKey="week2" name="Week 2" fill="#82ca9d" />
-                                <Bar dataKey="week3" name="Week 3" fill="#ffc658" />
-                                <Bar dataKey="week4" name="Week 4" fill="#ff8042" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card className="hover-card" title="Result comparison across semesters">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={resultComparisonSemesters}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="semester" />
-                                <YAxis yAxisId="left" />
-                                <YAxis yAxisId="right" orientation="right" />
-                                <Tooltip />
-                                <Legend />
-                                <Line yAxisId="left" type="monotone" dataKey="avgGpa" name="Avg GPA" stroke="#1890ff" />
-                                <Line yAxisId="right" type="monotone" dataKey="passRate" name="Pass %" stroke="#52c41a" />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card className="hover-card" title="Fee collection vs pending dues">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={feeCollectionVsPending}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="collected" name="Collected" fill="#52c41a" />
-                                <Bar dataKey="pending" name="Pending" fill="#ff4d4f" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card className="hover-card" title="Performance distribution">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie
-                                    data={performanceDistribution}
-                                    dataKey="count"
-                                    nameKey="range"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={100}
-                                    label
-                                >
-                                    {performanceDistribution.map((_, i) => (
-                                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    <ChartCard title="Attendance Trends by Class (%)" loading={loadingAttendance}>
+                        {attendanceData.length === 0 ? (
+                            <EmptyChart message="No attendance records found" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={320}>
+                                <BarChart data={attendanceData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="className" />
+                                    <YAxis domain={[0, 100]} />
+                                    <RechartsTooltip formatter={(val) => `${val}%`} />
+                                    <Legend />
+                                    {weekKeys.map((key, i) => (
+                                        <Bar
+                                            key={key}
+                                            dataKey={key}
+                                            name={key}
+                                            fill={weekColors[i % weekColors.length]}
+                                            radius={[4, 4, 0, 0]}
+                                        />
                                     ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </Card>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
+                </Col>
+
+                {/* Chart 2 — Result comparison across semesters */}
+                <Col xs={24} lg={12}>
+                    <ChartCard title="Result Comparison Across Semesters" loading={loadingSemester}>
+                        {semesterData.length === 0 ? (
+                            <EmptyChart message="No result records found" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={320}>
+                                <LineChart data={semesterData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="semester" />
+                                    <YAxis yAxisId="left" domain={[0, 100]} />
+                                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+                                    <RechartsTooltip />
+                                    <Legend />
+                                    <Line
+                                        yAxisId="left"
+                                        type="monotone"
+                                        dataKey="avgMarks"
+                                        name="Avg Marks"
+                                        stroke="#1890ff"
+                                        strokeWidth={2}
+                                        dot={{ r: 6, fill: '#1890ff' }}
+                                    />
+                                    <Line
+                                        yAxisId="right"
+                                        type="monotone"
+                                        dataKey="passRate"
+                                        name="Pass Rate %"
+                                        stroke="#52c41a"
+                                        strokeWidth={2}
+                                        dot={{ r: 6, fill: '#52c41a' }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
+                </Col>
+
+                {/* Chart 3 — Fee collection vs pending */}
+                <Col xs={24} lg={12}>
+                    <ChartCard title="Fee Collection vs Pending Dues (Rs)" loading={loadingFees}>
+                        {feeData.length === 0 ? (
+                            <EmptyChart message="No fee records found" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={320}>
+                                <BarChart data={feeData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis
+                                        tickFormatter={(v) =>
+                                            v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+                                        }
+                                    />
+                                    <RechartsTooltip
+                                        formatter={(val) => `Rs ${Number(val).toLocaleString()}`}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="collected" name="Collected" fill="#52c41a" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="pending" name="Pending" fill="#ff4d4f" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
+                </Col>
+
+                {/* Chart 4 — Performance distribution */}
+                <Col xs={24} lg={12}>
+                    <ChartCard title="Performance Distribution" loading={loadingDistribution}>
+                        {distributionData.length === 0 || distributionData.every((d) => d.count === 0) ? (
+                            <EmptyChart message="No result records found" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={320}>
+                                <PieChart>
+                                    <Pie
+                                        data={distributionData}
+                                        dataKey="count"
+                                        nameKey="range"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={100}
+                                        label={({ range, percent }) =>
+                                            `${range} (${(percent * 100).toFixed(0)}%)`
+                                        }
+                                        labelLine={true}
+                                    >
+                                        {distributionData.map((_, i) => (
+                                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip
+                                        formatter={(val, name) => [`${val} students`, name]}
+                                    />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        )}
+                    </ChartCard>
                 </Col>
             </Row>
         </div>
