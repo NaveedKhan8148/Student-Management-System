@@ -97,9 +97,11 @@ const Attendance = () => {
             const res = await axios.get(`/api/v1/students/class/${classId}`);
             const list = res.data.data || [];
             setStudents(list);
+            // Reset attendance when loading new class
             const init = {};
             list.forEach((s) => { init[s._id] = 'Present'; });
-            setAttendance((prev) => ({ ...init, ...prev }));
+            setAttendance(init);
+            setExistingRecords({});
         } catch (err) {
             message.error('Failed to fetch students');
         } finally {
@@ -114,6 +116,16 @@ const Attendance = () => {
                 `/api/v1/attendance/class/${classId}?date=${dateStr}`
             );
             const records = res.data.data || [];
+            
+            if (records.length === 0) {
+                // No records found for this date - reset to default "Present" for all students
+                const init = {};
+                students.forEach((s) => { init[s._id] = 'Present'; });
+                setAttendance(init);
+                setExistingRecords({});
+                return;
+            }
+            
             const statusMap = {};
             const idMap = {};
             records.forEach((r) => {
@@ -121,10 +133,22 @@ const Attendance = () => {
                 statusMap[sid] = r.status;
                 idMap[sid] = r._id;
             });
-            setAttendance((prev) => ({ ...prev, ...statusMap }));
+            
+            // For students without records, set default to "Present"
+            const finalAttendance = {};
+            students.forEach((s) => {
+                finalAttendance[s._id] = statusMap[s._id] || 'Present';
+            });
+            
+            setAttendance(finalAttendance);
             setExistingRecords(idMap);
-        } catch {
-            // No existing records for this date is fine
+        } catch (error) {
+            console.error('Error fetching attendance:', error);
+            // On error, reset to default "Present" for all students
+            const init = {};
+            students.forEach((s) => { init[s._id] = 'Present'; });
+            setAttendance(init);
+            setExistingRecords({});
         }
     };
 
@@ -234,13 +258,24 @@ const Attendance = () => {
         setSearchText('');
     };
 
-    // Current attendance stats
+    // Current attendance stats for the selected date
     const presentCount = Object.values(attendance).filter((v) => v === 'Present').length;
     const absentCount = Object.values(attendance).filter((v) => v === 'Absent').length;
     const lateCount = Object.values(attendance).filter((v) => v === 'Late').length;
 
-    // Table columns
+    // Table columns with Date column added
     const markColumns = [
+        {
+            title: 'Date',
+            key: 'date',
+            width: 120,
+            render: () => (
+                <Space>
+                    <CalendarOutlined style={{ color: '#1890ff' }} />
+                    <span style={{ fontWeight: 500 }}>{selectedDate.format('YYYY-MM-DD')}</span>
+                </Space>
+            ),
+        },
         {
             title: 'Student',
             key: 'student',
@@ -256,6 +291,12 @@ const Attendance = () => {
                     </Space>
                 </Tooltip>
             ),
+        },
+        {
+            title: 'Roll No',
+            key: 'rollNo',
+            width: 120,
+            render: (_, record) => record.rollNo,
         },
         {
             title: 'Status',
@@ -301,9 +342,9 @@ const Attendance = () => {
             ),
         },
         {
-            title: 'Status',
+            title: 'Saved Status',
             key: 'saved',
-            width: 100,
+            width: 120,
             render: (_, record) =>
                 existingRecords[record._id] ? (
                     <Tag color="green" icon={<CheckCircleOutlined />}>Saved</Tag>
@@ -487,7 +528,6 @@ const Attendance = () => {
                                     value={selectedDate}
                                     onChange={(date) => setSelectedDate(date)}
                                     format="YYYY-MM-DD"
-                                    disabledDate={(d) => d && d.isAfter(dayjs())}
                                     size="large"
                                     style={{ width: '100%' }}
                                 />
@@ -521,7 +561,7 @@ const Attendance = () => {
                         </Space>
                     </Card>
 
-                    {/* Quick Stats for current session */}
+                    {/* Quick Stats for selected date */}
                     {students.length > 0 && (
                         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                             <Col xs={24} sm={8}>
@@ -536,7 +576,7 @@ const Attendance = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
                                             <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                                Present Today
+                                                Present on {selectedDate.format('YYYY-MM-DD')}
                                             </div>
                                             <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#52c41a' }}>
                                                 {presentCount}
@@ -558,7 +598,7 @@ const Attendance = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
                                             <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                                Absent Today
+                                                Absent on {selectedDate.format('YYYY-MM-DD')}
                                             </div>
                                             <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#ff4d4f' }}>
                                                 {absentCount}
@@ -580,7 +620,7 @@ const Attendance = () => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <div>
                                             <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
-                                                Late Today
+                                                Late on {selectedDate.format('YYYY-MM-DD')}
                                             </div>
                                             <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#faad14' }}>
                                                 {lateCount}
@@ -599,6 +639,11 @@ const Attendance = () => {
                             <div style={{ textAlign: 'center', padding: 60, color: '#8c8c8c' }}>
                                 <BookOutlined style={{ fontSize: 64, marginBottom: 16 }} />
                                 <div style={{ fontSize: 16 }}>Please select a class to mark attendance</div>
+                            </div>
+                        ) : students.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 60, color: '#8c8c8c' }}>
+                                <UserOutlined style={{ fontSize: 64, marginBottom: 16 }} />
+                                <div style={{ fontSize: 16 }}>No students found in this class</div>
                             </div>
                         ) : (
                             <Table
