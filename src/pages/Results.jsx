@@ -20,11 +20,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 
 dayjs.extend(relativeTime);
 
-
-const { Title, Text } = Typography;  // <-- ADD THIS LINE
-
-dayjs.extend(relativeTime);
-
+const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
@@ -76,6 +72,15 @@ const Results = () => {
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
 
+    // Create a map for quick class lookup
+    const classMap = useMemo(() => {
+        const map = {};
+        classes.forEach(cls => {
+            map[cls._id] = cls.name;
+        });
+        return map;
+    }, [classes]);
+
     useEffect(() => {
         fetchStudents();
         fetchClasses();
@@ -99,7 +104,7 @@ const Results = () => {
     const fetchStudents = async () => {
         try {
             const res = await axios.get('/api/v1/students/');
-            setStudents(res.data.data);
+            setStudents(res.data.data || []);
         } catch {
             message.error('Failed to fetch students');
         }
@@ -108,7 +113,8 @@ const Results = () => {
     const fetchClasses = async () => {
         try {
             const res = await axios.get('/api/v1/classes/');
-            setClasses(res.data.data);
+            const classesData = res.data.data?.classes || res.data.data || [];
+            setClasses(classesData);
         } catch {
             message.error('Failed to fetch classes');
         }
@@ -121,16 +127,34 @@ const Results = () => {
                 ? `/api/v1/results/student/${studentId}?semester=${semester}`
                 : `/api/v1/results/student/${studentId}`;
             const res = await axios.get(url);
-
+            
             const student = students.find((s) => s._id === studentId);
-            const enriched = res.data.data.map((r) => ({
-                ...r,
-                studentName: student?.studentName || '-',
-                rollNo: student?.rollNo || '-',
-            }));
+            
+            // Enrich results with student info and resolve class name
+            const enriched = res.data.data.map((r) => {
+                // Get class ID (could be object or string)
+                let classId = r.classId;
+                let className = '';
+                
+                if (typeof classId === 'object' && classId !== null) {
+                    className = classId.name || '';
+                    classId = classId._id;
+                } else if (typeof classId === 'string') {
+                    className = classMap[classId] || '';
+                }
+                
+                return {
+                    ...r,
+                    studentName: student?.studentName || '-',
+                    rollNo: student?.rollNo || '-',
+                    className: className,
+                    classId: classId,
+                };
+            });
 
             setResults(enriched);
-        } catch {
+        } catch (error) {
+            console.error('Error fetching results:', error);
             message.error('Failed to fetch results');
         } finally {
             setTableLoading(false);
@@ -149,16 +173,24 @@ const Results = () => {
                 const student = students.find(
                     (s) => s._id === (r.studentId?._id || r.studentId)
                 );
+                
+                // Get class name
+                let className = '';
+                let classIdValue = r.classId;
+                
+                if (typeof classIdValue === 'object' && classIdValue !== null) {
+                    className = classIdValue.name || '';
+                    classIdValue = classIdValue._id;
+                } else if (typeof classIdValue === 'string') {
+                    className = classMap[classIdValue] || '';
+                }
+                
                 return {
                     ...r,
-                    studentName:
-                        r.studentId?.studentName ||
-                        student?.studentName ||
-                        '-',
-                    rollNo:
-                        r.studentId?.rollNo ||
-                        student?.rollNo ||
-                        '-',
+                    studentName: r.studentId?.studentName || student?.studentName || '-',
+                    rollNo: r.studentId?.rollNo || student?.rollNo || '-',
+                    className: className,
+                    classId: classIdValue,
                 };
             });
 
@@ -177,11 +209,26 @@ const Results = () => {
                     axios
                         .get(`/api/v1/results/student/${s._id}`)
                         .then((r) =>
-                            r.data.data.map((result) => ({
-                                ...result,
-                                studentName: s.studentName,
-                                rollNo: s.rollNo,
-                            }))
+                            r.data.data.map((result) => {
+                                // Get class name
+                                let className = '';
+                                let classIdValue = result.classId;
+                                
+                                if (typeof classIdValue === 'object' && classIdValue !== null) {
+                                    className = classIdValue.name || '';
+                                    classIdValue = classIdValue._id;
+                                } else if (typeof classIdValue === 'string') {
+                                    className = classMap[classIdValue] || '';
+                                }
+                                
+                                return {
+                                    ...result,
+                                    studentName: s.studentName,
+                                    rollNo: s.rollNo,
+                                    className: className,
+                                    classId: classIdValue,
+                                };
+                            })
                         )
                         .catch(() => [])
                 )
@@ -338,7 +385,7 @@ const Results = () => {
         doc.text(`Student: ${record.studentName || '-'}`, 20, 40);
         doc.text(`Roll No: ${record.rollNo || '-'}`, 20, 50);
         doc.text(`Semester: ${record.semester}`, 20, 60);
-        doc.text(`Class: ${record.classId?.name || '-'}`, 20, 70);
+        doc.text(`Class: ${record.className || '-'}`, 20, 70);
         autoTable(doc, {
             startY: 80,
             head: [['Subject', 'Marks', 'Grade']],
@@ -381,9 +428,21 @@ const Results = () => {
             ),
         },
         {
+            title: 'Roll No',
+            dataIndex: 'rollNo',
+            key: 'rollNo',
+            sorter: (a, b) => (a.rollNo || '').localeCompare(b.rollNo || ''),
+        },
+        {
             title: 'Class',
-            key: 'class',
-            render: (_, r) => r.classId?.name || '-',
+            dataIndex: 'className',
+            key: 'className',
+            render: (className) => (
+                <Tag color="cyan" icon={<BookOutlined />}>
+                    {className || '-'}
+                </Tag>
+            ),
+            sorter: (a, b) => (a.className || '').localeCompare(b.className || ''),
         },
         {
             title: 'Subject',
@@ -391,7 +450,7 @@ const Results = () => {
             key: 'subject',
             sorter: (a, b) => (a.subject || '').localeCompare(b.subject || ''),
             render: (subject) => (
-                <Tag icon={<BookOutlined />} color="cyan">
+                <Tag icon={<BookOutlined />} color="blue">
                     {subject}
                 </Tag>
             ),
@@ -445,12 +504,10 @@ const Results = () => {
             key: 'semester',
             sorter: (a, b) => (a.semester || '').localeCompare(b.semester || ''),
             render: (semester) => (
-                <Tooltip title={`Submitted: ${dayjs().format('YYYY-MM-DD')}`}>
-                    <Space>
-                        <ClockCircleOutlined style={{ color: '#8c8c8c' }} />
-                        <span>{semester}</span>
-                    </Space>
-                </Tooltip>
+                <Space>
+                    <ClockCircleOutlined style={{ color: '#8c8c8c' }} />
+                    <span>{semester}</span>
+                </Space>
             ),
         },
         {
@@ -744,7 +801,7 @@ const Results = () => {
                         showTotal: (total) => `Total ${total} results`,
                         pageSizeOptions: ['10', '20', '50', '100'],
                     }}
-                    scroll={{ x: 1200 }}
+                    scroll={{ x: 1300 }}
                 />
             )}
 
