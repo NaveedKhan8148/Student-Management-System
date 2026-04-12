@@ -1,91 +1,323 @@
-import React, { useMemo } from 'react';
-import { Alert, Card, Col, List, Row, Typography } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Alert, Card, Col, List, Row, Typography, Spin, Tag, Statistic, Avatar, Badge, Progress, Space, Tooltip } from 'antd';
+import {
+    UserOutlined, BookOutlined, DollarOutlined, WarningOutlined,
+    CheckCircleOutlined, CloseCircleOutlined, RiseOutlined,
+    FallOutlined, ClockCircleOutlined, CalendarOutlined,
+    TeamOutlined, MailOutlined, PhoneOutlined, HomeOutlined
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { attendanceData } from '../data/attendance';
-import { feesData } from '../data/fees';
-import { resultsData } from '../data/results';
-import { academicWarningsData } from '../data/warnings';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import axios from 'axios';
 import { useChildStudent } from '../hooks/useChildStudent';
+
+dayjs.extend(relativeTime);
 
 const { Title, Text } = Typography;
 
-function buildAlerts(childId) {
-    const alerts = [];
-    const records = attendanceData.filter((a) => a.studentId === childId);
-    const normalizedRecords = records.map((r) => ({ ...r, status: r.status === 'Late' ? 'Absent' : r.status }));
-    const presentLike = normalizedRecords.filter((r) => r.status === 'Present').length;
-    const pct = normalizedRecords.length ? (presentLike / normalizedRecords.length) * 100 : 100;
-    if (pct < 75) {
-        alerts.push({
-            type: 'warning',
-            title: 'Attendance below threshold',
-            description: `Overall attendance is about ${pct.toFixed(0)}% (rule: below 75%).`,
-        });
-    }
-
-    feesData
-        .filter((f) => f.studentId === childId && f.status === 'Pending' && f.dueDate)
-        .forEach((f) => {
-            if (dayjs().isAfter(dayjs(f.dueDate), 'day')) {
-                alerts.push({
-                    type: 'error',
-                    title: 'Fee overdue',
-                    description: `${f.type} (Rs ${f.amount}) was due on ${f.dueDate}.`,
-                });
-            }
-        });
-
-    const marks = resultsData.filter((r) => r.studentId === childId);
-    const avg =
-        marks.length > 0 ? marks.reduce((a, b) => a + b.marks, 0) / marks.length : null;
-    if (avg !== null && avg < 60) {
-        alerts.push({
-            type: 'warning',
-            title: 'Academic performance concern',
-            description: `Average marks are around ${avg.toFixed(0)}%.`,
-        });
-    }
-
-    academicWarningsData
-        .filter((w) => w.studentId === childId)
-        .forEach((w) => {
-            alerts.push({
-                type: 'error',
-                title: w.rule,
-                description: w.detail,
-            });
-        });
-
-    return alerts;
-}
-
 const ParentOverview = () => {
-    const child = useChildStudent();
+    const { child, loading: childLoading, error: childError } = useChildStudent();
 
-    const alerts = useMemo(() => (child ? buildAlerts(child.id) : []), [child]);
+    const [alerts, setAlerts] = useState([]);
+    const [stats, setStats] = useState({
+        attendancePct: null,
+        pendingFees: 0,
+        avgMarks: null,
+        warningCount: 0,
+    });
+    const [loadingAlerts, setLoadingAlerts] = useState(false);
 
-    if (!child) {
-        return <Text type="danger">No linked student record.</Text>;
+    useEffect(() => {
+        if (child?._id) {
+            buildAlerts(child._id);
+        }
+    }, [child]);
+
+    const buildAlerts = async (studentId) => {
+        setLoadingAlerts(true);
+        const newAlerts = [];
+        const newStats = { attendancePct: null, pendingFees: 0, avgMarks: null, warningCount: 0 };
+
+        try {
+            // Attendance
+            const attRes = await axios.get(`/api/v1/attendance/student/${studentId}`);
+            const records = attRes.data.data;
+            if (records.length > 0) {
+                const present = records.filter((r) => r.status === 'Present').length;
+                const pct = (present / records.length) * 100;
+                newStats.attendancePct = pct.toFixed(0);
+                if (pct < 75) {
+                    newAlerts.push({
+                        type: 'warning',
+                        title: 'Attendance below threshold',
+                        description: `Overall attendance is ${pct.toFixed(0)}% — below the 75% requirement.`,
+                    });
+                }
+            }
+        } catch { /* silent */ }
+
+        try {
+            // Pending fees
+            const feeRes = await axios.get(`/api/v1/fees/student/${studentId}/pending`);
+            const pendingFees = feeRes.data.data;
+            const total = pendingFees.reduce((s, f) => s + Number(f.amount), 0);
+            newStats.pendingFees = total;
+
+            pendingFees.forEach((f) => {
+                if (f.dueDate && dayjs().isAfter(dayjs(f.dueDate), 'day')) {
+                    newAlerts.push({
+                        type: 'error',
+                        title: 'Fee overdue',
+                        description: `${f.feeType} (Rs ${Number(f.amount).toLocaleString()}) was due on ${dayjs(f.dueDate).format('YYYY-MM-DD')}.`,
+                    });
+                }
+            });
+        } catch { /* silent */ }
+
+        try {
+            // Results
+            const resRes = await axios.get(`/api/v1/results/student/${studentId}`);
+            const results = resRes.data.data;
+            if (results.length > 0) {
+                const avg = results.reduce((s, r) => s + r.marks, 0) / results.length;
+                newStats.avgMarks = avg.toFixed(0);
+                if (avg < 60) {
+                    newAlerts.push({
+                        type: 'warning',
+                        title: 'Academic performance concern',
+                        description: `Average marks are ${avg.toFixed(0)} — below the 60% passing threshold.`,
+                    });
+                }
+            }
+        } catch { /* silent */ }
+
+        try {
+            // Academic warnings
+            const warnRes = await axios.get(`/api/v1/warnings/student/${studentId}`);
+            const warnings = warnRes.data.data;
+            newStats.warningCount = warnings.length;
+            warnings.forEach((w) => {
+                newAlerts.push({
+                    type: 'error',
+                    title: w.ruleViolated,
+                    description: w.detailDescription,
+                });
+            });
+        } catch { /* silent */ }
+
+        setAlerts(newAlerts);
+        setStats(newStats);
+        setLoadingAlerts(false);
+    };
+
+    // Stats Cards Data
+    const statsCards = [
+        {
+            title: 'Attendance',
+            value: stats.attendancePct !== null ? `${stats.attendancePct}%` : '—',
+            icon: <CheckCircleOutlined />,
+            color: stats.attendancePct !== null && stats.attendancePct < 75 ? '#ff4d4f' : '#52c41a',
+            bgColor: stats.attendancePct !== null && stats.attendancePct < 75 ? '#fff2f0' : '#f6ffed',
+            progress: true,
+            progressValue: stats.attendancePct || 0,
+            subtitle: stats.attendancePct !== null && stats.attendancePct < 75 ? 'Below requirement' : 'Good standing'
+        },
+        {
+            title: 'Average Marks',
+            value: stats.avgMarks !== null ? `${stats.avgMarks}/100` : '—',
+            icon: <RiseOutlined />,
+            color: stats.avgMarks !== null && stats.avgMarks < 60 ? '#ff4d4f' : '#1890ff',
+            bgColor: stats.avgMarks !== null && stats.avgMarks < 60 ? '#fff2f0' : '#e6f7ff',
+            progress: true,
+            progressValue: stats.avgMarks || 0,
+            subtitle: stats.avgMarks !== null && stats.avgMarks >= 75 ? 'Excellent' : stats.avgMarks >= 60 ? 'Good' : 'Needs improvement'
+        },
+        {
+            title: 'Pending Fees',
+            value: `Rs ${stats.pendingFees.toLocaleString()}`,
+            icon: <DollarOutlined />,
+            color: stats.pendingFees > 0 ? '#faad14' : '#52c41a',
+            bgColor: stats.pendingFees > 0 ? '#fff7e6' : '#f6ffed',
+            subtitle: stats.pendingFees > 0 ? 'Payment required' : 'All paid'
+        },
+        {
+            title: 'Warnings',
+            value: stats.warningCount,
+            icon: <WarningOutlined />,
+            color: stats.warningCount > 0 ? '#ff4d4f' : '#52c41a',
+            bgColor: stats.warningCount > 0 ? '#fff2f0' : '#f6ffed',
+            subtitle: stats.warningCount > 0 ? 'Action required' : 'No warnings'
+        }
+    ];
+
+    if (childLoading) {
+        return (
+            <div style={{ textAlign: 'center', padding: 60 }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (childError || !child) {
+        return <Text type="danger">{childError || 'No linked student record found.'}</Text>;
     }
 
     return (
         <div>
-            <Title level={2}>Parent dashboard</Title>
-            <Text type="secondary">
-                Read-only view for <strong>{child.name}</strong> ({child.rollNumber}) — {child.program}
-            </Text>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    Parent Dashboard
+                </Title>
+                <Text type="secondary">
+                    Read-only view for your child's academic information
+                </Text>
+            </div>
 
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+            {/* Student Info Card */}
+            <Card 
+                style={{ marginBottom: 24, borderRadius: '10px' }}
+                className="hover-card"
+            >
+                <Row gutter={[24, 16]} align="middle">
+                    <Col xs={24} sm={4} style={{ textAlign: 'center' }}>
+                        <Avatar 
+                            size={80} 
+                            icon={<UserOutlined />} 
+                            style={{ backgroundColor: '#1890ff' }}
+                        />
+                        <div style={{ marginTop: 8 }}>
+                            <Tag color="blue">{child.classId?.name || 'No Class'}</Tag>
+                        </div>
+                    </Col>
+                    <Col xs={24} sm={20}>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={12} sm={6}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Student Name</Text>
+                                <div style={{ fontWeight: 600, fontSize: 16 }}>{child.studentName}</div>
+                            </Col>
+                            <Col xs={12} sm={6}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Roll Number</Text>
+                                <div style={{ fontWeight: 600 }}>{child.rollNo}</div>
+                            </Col>
+                            <Col xs={12} sm={6}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Class & Section</Text>
+                                <div style={{ fontWeight: 600 }}>{child.classId?.name || '-'}</div>
+                            </Col>
+                            <Col xs={12} sm={6}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Date of Joining</Text>
+                                <div style={{ fontWeight: 600 }}>
+                                    {child.dateOfJoining
+                                        ? dayjs(child.dateOfJoining).format('YYYY-MM-DD')
+                                        : '-'}
+                                </div>
+                            </Col>
+                            <Col xs={12} sm={6}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Father's Name</Text>
+                                <div style={{ fontWeight: 600 }}>{child.fatherName || '-'}</div>
+                            </Col>
+                            <Col xs={12} sm={6}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>Address</Text>
+                                <div style={{ fontWeight: 600 }}>{child.address || '-'}</div>
+                            </Col>
+                            <Col xs={24}>
+                                <Space>
+                                    <Tooltip title="Email">
+                                        <Tag icon={<MailOutlined />}>Parent Access</Tag>
+                                    </Tooltip>
+                                    <Tooltip title="Real-time Updates">
+                                        <Tag icon={<ClockCircleOutlined />} color="cyan">Live Data</Tag>
+                                    </Tooltip>
+                                    <Tooltip title="Read-only Mode">
+                                        <Tag icon={<BookOutlined />} color="purple">View Only</Tag>
+                                    </Tooltip>
+                                </Space>
+                            </Col>
+                        </Row>
+                    </Col>
+                </Row>
+            </Card>
+
+            {/* Stats Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                {statsCards.map((card, index) => (
+                    <Col xs={24} sm={12} lg={6} key={index}>
+                        <Card 
+                            hoverable 
+                            style={{ 
+                                borderTop: `4px solid ${card.color}`,
+                                borderRadius: '10px',
+                                backgroundColor: card.bgColor
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                        {card.title}
+                                    </div>
+                                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: card.color }}>
+                                        {card.value}
+                                    </div>
+                                    {card.subtitle && (
+                                        <div style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '4px' }}>
+                                            {card.subtitle}
+                                        </div>
+                                    )}
+                                </div>
+                                {card.progress && card.title !== 'Pending Fees' && card.title !== 'Warnings' ? (
+                                    <Progress 
+                                        type="circle" 
+                                        percent={card.progressValue} 
+                                        width={60} 
+                                        strokeColor={card.color}
+                                        format={(percent) => `${percent}%`}
+                                    />
+                                ) : (
+                                    <div style={{ fontSize: '48px', color: card.color }}>
+                                        {card.icon}
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+
+            {/* Alerts and Info Section */}
+            <Row gutter={[16, 16]}>
                 <Col xs={24} lg={14}>
-                    <Card className="hover-card" title="Automatic alerts">
-                        {alerts.length === 0 ? (
-                            <Alert type="success" message="No active alerts based on current static data." showIcon />
+                    <Card 
+                        className="hover-card" 
+                        title={
+                            <Space>
+                                <WarningOutlined style={{ color: '#faad14' }} />
+                                <span>Automatic Alerts & Notifications</span>
+                            </Space>
+                        }
+                        style={{ borderRadius: '10px' }}
+                    >
+                        {loadingAlerts ? (
+                            <div style={{ textAlign: 'center', padding: 40 }}>
+                                <Spin size="large" />
+                            </div>
+                        ) : alerts.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 40 }}>
+                                <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
+                                <div style={{ fontSize: 16, color: '#52c41a', fontWeight: 500 }}>All Clear!</div>
+                                <Text type="secondary">No active alerts — everything looks good!</Text>
+                            </div>
                         ) : (
                             <List
                                 dataSource={alerts}
                                 renderItem={(item) => (
-                                    <List.Item>
-                                        <Alert type={item.type} message={item.title} description={item.description} showIcon />
+                                    <List.Item style={{ padding: '8px 0' }}>
+                                        <Alert
+                                            style={{ width: '100%', borderRadius: '8px' }}
+                                            type={item.type}
+                                            message={item.title}
+                                            description={item.description}
+                                            showIcon
+                                        />
                                     </List.Item>
                                 )}
                             />
@@ -93,11 +325,36 @@ const ParentOverview = () => {
                     </Card>
                 </Col>
                 <Col xs={24} lg={10}>
-                    <Card className="hover-card" title="Transparency & accountability">
-                        <p style={{ margin: 0, color: '#595959' }}>
-                            This module mirrors institutional data (attendance, results, fees, timetable) so parents can
-                            collaborate with the school without editing records.
-                        </p>
+                    <Card 
+                        className="hover-card" 
+                        title={
+                            <Space>
+                                <TeamOutlined style={{ color: '#1890ff' }} />
+                                <span>Transparency & Accountability</span>
+                            </Space>
+                        }
+                        style={{ borderRadius: '10px' }}
+                    >
+                        <Text style={{ color: '#595959', lineHeight: 1.6 }}>
+                            This portal mirrors live institutional data — attendance, results,
+                            fees, and timetable — so you can stay informed and collaborate
+                            with the school. All data here is read-only for your convenience.
+                        </Text>
+                        <div style={{ marginTop: 20 }}>
+                            <Title level={5} style={{ marginBottom: 12 }}>Available Information</Title>
+                            <Space wrap>
+                                <Tag color="blue" icon={<CheckCircleOutlined />}>Attendance Records</Tag>
+                                <Tag color="green" icon={<RiseOutlined />}>Results & Grades</Tag>
+                                <Tag color="orange" icon={<DollarOutlined />}>Fee Details</Tag>
+                                <Tag color="red" icon={<WarningOutlined />}>Warnings</Tag>
+                                <Tag color="purple" icon={<CalendarOutlined />}>Timetable</Tag>
+                            </Space>
+                        </div>
+                        <div style={{ marginTop: 16, padding: 12, backgroundColor: '#f0f5ff', borderRadius: '8px' }}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                <ClockCircleOutlined /> Last updated: {dayjs().format('YYYY-MM-DD HH:mm:ss')}
+                            </Text>
+                        </div>
                     </Card>
                 </Col>
             </Row>

@@ -1,38 +1,197 @@
-import React from 'react';
-import { Badge, Calendar, Typography } from 'antd';
-import { timetableData } from '../data/timetable';
+import React, { useState, useEffect } from 'react';
+import {
+    Badge, Calendar, Typography, Spin, Card,
+    Table, Tag, Row, Col, Select
+} from 'antd';
+import axios from 'axios';
 import { useChildStudent } from '../hooks/useChildStudent';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
+
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const ParentTimetable = () => {
-    const child = useChildStudent();
+    const { child, loading: childLoading, error: childError } = useChildStudent();
+    const [timetable, setTimetable] = useState([]);
+    const [loadingTimetable, setLoadingTimetable] = useState(false);
+    const [view, setView] = useState('grid'); // 'grid' | 'calendar' | 'table'
 
-    const getListData = (value) => {
-        const dayName = value.format('dddd');
-        return timetableData.filter((item) => item.day === dayName);
+    useEffect(() => {
+        if (child?.classId?._id) {
+            fetchTimetable(child.classId._id);
+        }
+    }, [child]);
+
+    const fetchTimetable = async (classId) => {
+        setLoadingTimetable(true);
+        try {
+            const res = await axios.get(`/api/v1/timetable/class/${classId}`);
+            setTimetable(res.data.data);
+        } catch {
+            // silent
+        } finally {
+            setLoadingTimetable(false);
+        }
     };
 
+    // ── Calendar cell render ──────────────────────────────────────────────────
     const dateCellRender = (value) => {
-        const listData = getListData(value);
+        const dayName = value.format('dddd');
+        const entries = timetable.filter((t) => t.dayOfWeek === dayName);
         return (
-            <ul className="events" style={{ listStyle: 'none', padding: 0 }}>
-                {listData.map((item) => (
-                    <li key={item.key}>
-                        <Badge status="success" text={`${item.time} — ${item.subject} (${item.room})`} />
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {entries.map((item) => (
+                    <li key={item._id}>
+                        <Badge
+                            status="success"
+                            text={
+                                <span style={{ fontSize: 11 }}>
+                                    {item.timeSlot} — {item.subject} ({item.roomLocation})
+                                </span>
+                            }
+                        />
                     </li>
                 ))}
             </ul>
         );
     };
 
-    if (!child) return <Text type="danger">No linked student.</Text>;
+    // ── Weekly grid ───────────────────────────────────────────────────────────
+    const WeeklyGrid = () => (
+        <Row gutter={[8, 8]}>
+            {DAY_ORDER.map((day) => {
+                const dayEntries = timetable
+                    .filter((t) => t.dayOfWeek === day)
+                    .sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
+
+                return (
+                    <Col xs={24} sm={12} lg={8} xl={4} key={day}>
+                        <Card
+                            size="small"
+                            title={<span style={{ fontWeight: 700 }}>{day}</span>}
+                            style={{ minHeight: 180 }}
+                            headStyle={{
+                                backgroundColor: '#f0f5ff',
+                                borderBottom: '2px solid #1890ff',
+                            }}
+                        >
+                            {dayEntries.length === 0 ? (
+                                <div style={{ color: '#bbb', fontSize: 12, textAlign: 'center', paddingTop: 16 }}>
+                                    No classes
+                                </div>
+                            ) : (
+                                dayEntries.map((entry) => (
+                                    <div
+                                        key={entry._id}
+                                        style={{
+                                            background: '#e6f7ff',
+                                            border: '1px solid #91d5ff',
+                                            borderRadius: 6,
+                                            padding: '6px 8px',
+                                            marginBottom: 6,
+                                            fontSize: 12,
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: 600, color: '#1890ff' }}>
+                                            {entry.subject}
+                                        </div>
+                                        <div style={{ color: '#555' }}>{entry.timeSlot}</div>
+                                        <div style={{ color: '#888' }}>
+                                            {entry.teacherId?.name || '-'}
+                                        </div>
+                                        <div style={{ color: '#aaa' }}>{entry.roomLocation}</div>
+                                    </div>
+                                ))
+                            )}
+                        </Card>
+                    </Col>
+                );
+            })}
+        </Row>
+    );
+
+    // ── Table view columns ────────────────────────────────────────────────────
+    const tableColumns = [
+        {
+            title: 'Day',
+            dataIndex: 'dayOfWeek',
+            key: 'dayOfWeek',
+            sorter: (a, b) =>
+                DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
+            render: (day) => <Tag color="blue">{day}</Tag>,
+        },
+        { title: 'Time Slot', dataIndex: 'timeSlot', key: 'timeSlot' },
+        { title: 'Subject', dataIndex: 'subject', key: 'subject' },
+        {
+            title: 'Teacher',
+            key: 'teacher',
+            render: (_, r) => r.teacherId?.name || '-',
+        },
+        { title: 'Room', dataIndex: 'roomLocation', key: 'roomLocation' },
+    ];
+
+    // ── Loading / error ───────────────────────────────────────────────────────
+    if (childLoading) {
+        return (
+            <div style={{ textAlign: 'center', padding: 60 }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (childError || !child) {
+        return <Text type="danger">{childError || 'No linked student found.'}</Text>;
+    }
+
+    if (!child.classId?._id) {
+        return <Text type="warning">Student is not assigned to a class yet.</Text>;
+    }
 
     return (
         <div>
             <Title level={2}>Timetable</Title>
-            <Text type="secondary">Read-only schedule (same institutional timetable as students view)</Text>
-            <Calendar style={{ marginTop: 16 }} dateCellRender={dateCellRender} mode="month" />
+            <Text type="secondary">
+                Read-only schedule for <strong>{child.studentName}</strong> — {child.classId?.name}
+            </Text>
+
+            {/* ── View toggle ── */}
+            <div style={{ marginTop: 16, marginBottom: 16 }}>
+                <Select
+                    value={view}
+                    onChange={setView}
+                    style={{ width: 160 }}
+                >
+                    <Option value="grid">Weekly Grid</Option>
+                    <Option value="table">Table View</Option>
+                </Select>
+            </div>
+
+            {/* ── Content ── */}
+            {loadingTimetable ? (
+                <div style={{ textAlign: 'center', padding: 60 }}>
+                    <Spin size="large" />
+                </div>
+            ) : timetable.length === 0 ? (
+                <Card>
+                    <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c' }}>
+                        No timetable entries found for this class
+                    </div>
+                </Card>
+            ) : (
+                <>
+                    {view === 'grid' && <WeeklyGrid />}
+
+                    {view === 'table' && (
+                        <Table
+                            rowKey="_id"
+                            columns={tableColumns}
+                            dataSource={timetable}
+                            pagination={false}
+                        />
+                    )}
+                </>
+            )}
         </div>
     );
 };
