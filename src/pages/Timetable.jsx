@@ -201,28 +201,6 @@ const Timetable = () => {
         },
     ];
 
-    // ── Calendar cell render ──────────────────────────────────────────────────
-    const dateCellRender = (value) => {
-        const dayName = value.format('dddd');
-        const entries = timetable.filter((t) => t.dayOfWeek === dayName);
-        return (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {entries.map((item) => (
-                    <li key={item._id}>
-                        <Badge
-                            status="success"
-                            text={
-                                <span style={{ fontSize: 11 }}>
-                                    {item.timeSlot} {item.subject} ({item.roomLocation})
-                                </span>
-                            }
-                        />
-                    </li>
-                ))}
-            </ul>
-        );
-    };
-
     // ── Weekly grid view ──────────────────────────────────────────────────────
     const WeeklyGrid = () => (
         <Row gutter={[8, 8]}>
@@ -380,10 +358,9 @@ const Timetable = () => {
                         value={view}
                         onChange={setView}
                         style={{ width: 130 }}
-                    >
+                    >   <Option value="grid">Weekly Grid</Option>
                         <Option value="table">Table View</Option>
-                        <Option value="grid">Weekly Grid</Option>
-                        <Option value="calendar">Calendar</Option>
+                        
                     </Select>
 
                     <Button
@@ -436,17 +413,6 @@ const Timetable = () => {
                     </div>
                 ) : (
                     <WeeklyGrid />
-                )
-            )}
-
-            {/* ── Calendar view ── */}
-            {selectedClass && view === 'calendar' && (
-                loading ? (
-                    <div style={{ textAlign: 'center', padding: 60 }}>
-                        <Spin size="large" />
-                    </div>
-                ) : (
-                    <Calendar cellRender={dateCellRender} mode="month" />
                 )
             )}
 
