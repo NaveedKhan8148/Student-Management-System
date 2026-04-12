@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
     Calendar, Badge, Modal, Form, Input, Select, Button,
-    message, Table, Tag, Space, Popconfirm, Card, Row, Col, Spin
+    message, Table, Tag, Space, Popconfirm, Card, Row, Col, Spin,
+    Typography, Tooltip, Avatar
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { 
+    PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, 
+    BookOutlined, UserOutlined, ClockCircleOutlined, EnvironmentOutlined,
+    CalendarOutlined, TableOutlined, AppstoreOutlined
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import axios from 'axios';
 
+const { Title, Text } = Typography;
 const { Option } = Select;
 
 const TIME_SLOTS = [
@@ -22,6 +28,21 @@ const TIME_SLOTS = [
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// Subject color mapping
+const SUBJECT_COLORS = {
+    'Mathematics': '#1890ff',
+    'Physics': '#52c41a',
+    'Chemistry': '#faad14',
+    'Biology': '#eb2f96',
+    'English': '#722ed1',
+    'Urdu': '#13c2c2',
+    'Computer Science': '#2f54eb',
+    'Business Administration': '#f5222d',
+    'Economics': '#fa8c16',
+    'History': '#a0d911',
+    'Geography': '#389e0d',
+};
+
 const Timetable = () => {
     const [timetable, setTimetable] = useState([]);
     const [classes, setClasses] = useState([]);
@@ -32,7 +53,7 @@ const Timetable = () => {
     const [editingEntry, setEditingEntry] = useState(null);
     const [loading, setLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
-    const [view, setView] = useState('table'); // 'table' | 'calendar'
+    const [view, setView] = useState('grid');
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
 
@@ -49,11 +70,11 @@ const Timetable = () => {
         }
     }, [selectedClass]);
 
-    // ── Fetch helpers ─────────────────────────────────────────────────────────
+    // Fetch helpers
     const fetchClasses = async () => {
         try {
             const res = await axios.get('/api/v1/classes/');
-            setClasses(res.data.data);
+            setClasses(res.data.data?.classes || res.data.data || []);
         } catch {
             message.error('Failed to fetch classes');
         }
@@ -62,7 +83,7 @@ const Timetable = () => {
     const fetchTeachers = async () => {
         try {
             const res = await axios.get('/api/v1/teachers/');
-            setTeachers(res.data.data);
+            setTeachers(res.data.data?.teachers || res.data.data || []);
         } catch {
             message.error('Failed to fetch teachers');
         }
@@ -72,7 +93,7 @@ const Timetable = () => {
         setLoading(true);
         try {
             const res = await axios.get(`/api/v1/timetable/class/${classId}`);
-            setTimetable(res.data.data);
+            setTimetable(res.data.data || []);
         } catch {
             message.error('Failed to fetch timetable');
         } finally {
@@ -80,7 +101,7 @@ const Timetable = () => {
         }
     };
 
-    // ── Handlers ──────────────────────────────────────────────────────────────
+    // Handlers
     const handleCreate = async (values) => {
         setSubmitLoading(true);
         try {
@@ -147,7 +168,7 @@ const Timetable = () => {
         }
     };
 
-    // ── Table view columns ────────────────────────────────────────────────────
+    // Table view columns
     const columns = [
         {
             title: 'Day',
@@ -155,38 +176,55 @@ const Timetable = () => {
             key: 'dayOfWeek',
             sorter: (a, b) =>
                 DAY_ORDER.indexOf(a.dayOfWeek) - DAY_ORDER.indexOf(b.dayOfWeek),
-            render: (day) => <Tag color="blue">{day}</Tag>,
+            render: (day) => <Tag color="blue" icon={<CalendarOutlined />}>{day}</Tag>,
         },
         {
             title: 'Time Slot',
             dataIndex: 'timeSlot',
             key: 'timeSlot',
+            render: (time) => <Tag icon={<ClockCircleOutlined />}>{time}</Tag>,
         },
         {
             title: 'Subject',
             dataIndex: 'subject',
             key: 'subject',
+            render: (subject) => (
+                <Tag color={SUBJECT_COLORS[subject] || '#1890ff'} icon={<BookOutlined />}>
+                    {subject}
+                </Tag>
+            ),
         },
         {
             title: 'Teacher',
             key: 'teacher',
-            render: (_, record) => record.teacherId?.name || '-',
+            render: (_, record) => (
+                <Space>
+                    <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                    <span>{record.teacherId?.name || '-'}</span>
+                </Space>
+            ),
         },
         {
             title: 'Room',
             dataIndex: 'roomLocation',
             key: 'roomLocation',
+            render: (room) => (
+                <Tag icon={<EnvironmentOutlined />}>{room}</Tag>
+            ),
         },
         {
             title: 'Action',
             key: 'action',
+            width: 100,
             render: (_, record) => (
                 <Space>
-                    <Button
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEditOpen(record)}
-                    />
+                    <Tooltip title="Edit">
+                        <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            onClick={() => handleEditOpen(record)}
+                        />
+                    </Tooltip>
                     <Popconfirm
                         title="Delete this timetable entry?"
                         onConfirm={() => handleDelete(record._id)}
@@ -194,16 +232,18 @@ const Timetable = () => {
                         cancelText="No"
                         okButtonProps={{ danger: true }}
                     >
-                        <Button icon={<DeleteOutlined />} size="small" danger />
+                        <Tooltip title="Delete">
+                            <Button icon={<DeleteOutlined />} size="small" danger />
+                        </Tooltip>
                     </Popconfirm>
                 </Space>
             ),
         },
     ];
 
-    // ── Weekly grid view ──────────────────────────────────────────────────────
+    // Weekly grid view - Previous better design
     const WeeklyGrid = () => (
-        <Row gutter={[8, 8]}>
+        <Row gutter={[16, 16]}>
             {DAY_ORDER.map((day) => {
                 const dayEntries = timetable
                     .filter((t) => t.dayOfWeek === day)
@@ -213,52 +253,102 @@ const Timetable = () => {
                     <Col xs={24} sm={12} lg={8} xl={4} key={day}>
                         <Card
                             size="small"
-                            title={<span style={{ fontWeight: 700 }}>{day}</span>}
-                            style={{ minHeight: 200 }}
-                            headStyle={{ backgroundColor: '#f0f5ff', borderBottom: '2px solid #1890ff' }}
+                            title={
+                                <span style={{ fontWeight: 700 }}>
+                                    <CalendarOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                                    {day}
+                                </span>
+                            }
+                            style={{ 
+                                minHeight: 200, 
+                                borderRadius: '10px',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                            }}
+                            headStyle={{ 
+                                backgroundColor: '#f0f5ff', 
+                                borderBottom: '2px solid #1890ff',
+                                borderRadius: '10px 10px 0 0'
+                            }}
                         >
                             {dayEntries.length === 0 ? (
-                                <div style={{ color: '#bbb', fontSize: 12, textAlign: 'center', paddingTop: 16 }}>
-                                    No classes
+                                <div style={{ 
+                                    color: '#bbb', 
+                                    fontSize: 12, 
+                                    textAlign: 'center', 
+                                    paddingTop: 30,
+                                    paddingBottom: 30
+                                }}>
+                                    <ClockCircleOutlined style={{ fontSize: 24, marginBottom: 8, display: 'block' }} />
+                                    No classes scheduled
                                 </div>
                             ) : (
                                 dayEntries.map((entry) => (
                                     <div
                                         key={entry._id}
                                         style={{
-                                            background: '#e6f7ff',
-                                            border: '1px solid #91d5ff',
-                                            borderRadius: 6,
-                                            padding: '6px 8px',
-                                            marginBottom: 6,
+                                            background: SUBJECT_COLORS[entry.subject] ? `${SUBJECT_COLORS[entry.subject]}10` : '#e6f7ff',
+                                            borderLeft: `4px solid ${SUBJECT_COLORS[entry.subject] || '#1890ff'}`,
+                                            borderRadius: 8,
+                                            padding: '10px 12px',
+                                            marginBottom: 10,
                                             fontSize: 12,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.3s ease',
                                         }}
+                                        onClick={() => handleEditOpen(entry)}
                                     >
-                                        <div style={{ fontWeight: 600, color: '#1890ff' }}>
+                                        <div style={{ fontWeight: 600, color: SUBJECT_COLORS[entry.subject] || '#1890ff', marginBottom: 6 }}>
+                                            <BookOutlined style={{ marginRight: 6 }} />
                                             {entry.subject}
                                         </div>
-                                        <div style={{ color: '#555' }}>{entry.timeSlot}</div>
-                                        <div style={{ color: '#888' }}>
+                                        <div style={{ color: '#555', marginBottom: 4 }}>
+                                            <ClockCircleOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
+                                            {entry.timeSlot}
+                                        </div>
+                                        <div style={{ color: '#666', marginBottom: 4 }}>
+                                            <UserOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
                                             {entry.teacherId?.name || '-'}
                                         </div>
-                                        <div style={{ color: '#aaa' }}>{entry.roomLocation}</div>
-                                        <Space size={4} style={{ marginTop: 4 }}>
+                                        <div style={{ color: '#888', marginBottom: 8 }}>
+                                            <EnvironmentOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
+                                            {entry.roomLocation}
+                                        </div>
+                                        <Space size={4}>
                                             <Button
                                                 size="small"
                                                 icon={<EditOutlined />}
-                                                onClick={() => handleEditOpen(entry)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEditOpen(entry);
+                                                }}
                                             />
                                             <Popconfirm
-                                                title="Delete?"
-                                                onConfirm={() => handleDelete(entry._id)}
-                                                okButtonProps={{ danger: true }}
+                                                title="Delete this entry?"
+                                                onConfirm={(e) => {
+                                                    e?.stopPropagation();
+                                                    handleDelete(entry._id);
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
                                             >
-                                                <Button size="small" danger icon={<DeleteOutlined />} />
+                                                <Button size="small" danger icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
                                             </Popconfirm>
                                         </Space>
                                     </div>
                                 ))
                             )}
+                            <Button
+                                type="dashed"
+                                icon={<PlusOutlined />}
+                                size="small"
+                                block
+                                style={{ marginTop: 8 }}
+                                onClick={() => {
+                                    form.setFieldsValue({ dayOfWeek: day });
+                                    setIsModalVisible(true);
+                                }}
+                            >
+                                Add Class
+                            </Button>
                         </Card>
                     </Col>
                 );
@@ -266,132 +356,171 @@ const Timetable = () => {
         </Row>
     );
 
-    // ── Shared form fields ────────────────────────────────────────────────────
-    const TimetableFormFields = () => (
-        <>
-            <Form.Item
-                name="dayOfWeek"
-                label="Day of Week"
-                rules={[{ required: true, message: 'Please select day' }]}
-            >
-                <Select placeholder="Select day">
-                    {DAY_ORDER.map((d) => (
-                        <Option key={d} value={d}>{d}</Option>
-                    ))}
-                </Select>
-            </Form.Item>
+    // Stats
+    const totalEntries = timetable.length;
+    const uniqueSubjects = new Set(timetable.map(t => t.subject)).size;
+    const uniqueTeachers = new Set(timetable.map(t => t.teacherId?._id)).size;
 
-            <Form.Item
-                name="timeSlot"
-                label="Time Slot"
-                rules={[{ required: true, message: 'Please select time slot' }]}
-            >
-                <Select placeholder="Select time slot">
-                    {TIME_SLOTS.map((t) => (
-                        <Option key={t} value={t}>{t}</Option>
-                    ))}
-                </Select>
-            </Form.Item>
-
-            <Form.Item
-                name="subject"
-                label="Subject"
-                rules={[{ required: true, message: 'Please enter subject' }]}
-            >
-                <Input placeholder="e.g. Mathematics" />
-            </Form.Item>
-
-            <Form.Item
-                name="teacherId"
-                label="Teacher"
-                rules={[{ required: true, message: 'Please select teacher' }]}
-            >
-                <Select
-                    placeholder="Select teacher"
-                    showSearch
-                    optionFilterProp="children"
-                >
-                    {teachers.map((t) => (
-                        <Option key={t._id} value={t._id}>
-                            {t.name} — {t.subject}
-                        </Option>
-                    ))}
-                </Select>
-            </Form.Item>
-
-            <Form.Item
-                name="roomLocation"
-                label="Room / Location"
-                rules={[{ required: true, message: 'Please enter room' }]}
-            >
-                <Input placeholder="e.g. Room 101" />
-            </Form.Item>
-        </>
-    );
-
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <div>
-            {/* ── Top bar ── */}
-            <div style={{
-                marginBottom: 16,
-                display: 'flex',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 8,
-            }}>
-                <h2 style={{ margin: 0 }}>Weekly Timetable</h2>
-                <Space wrap>
-                    <Select
-                        placeholder="Select class"
-                        style={{ width: 180 }}
-                        onChange={(val) => setSelectedClass(val)}
-                        value={selectedClass}
-                        allowClear
-                    >
-                        {classes.map((cls) => (
-                            <Option key={cls._id} value={cls._id}>{cls.name}</Option>
-                        ))}
-                    </Select>
-
-                    <Select
-                        value={view}
-                        onChange={setView}
-                        style={{ width: 130 }}
-                    >   <Option value="grid">Weekly Grid</Option>
-                        <Option value="table">Table View</Option>
-                        
-                    </Select>
-
-                    <Button
-                        icon={<ReloadOutlined />}
-                        onClick={() => selectedClass && fetchTimetable(selectedClass)}
-                        disabled={!selectedClass}
-                    >
-                        Refresh
-                    </Button>
-
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => setIsModalVisible(true)}
-                        disabled={!selectedClass}
-                    >
-                        Add Entry
-                    </Button>
-                </Space>
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>
+                    Class Timetable
+                </Title>
+                <Text type="secondary">
+                    Manage weekly class schedules, assign teachers, and track subjects
+                </Text>
             </div>
 
-            {/* ── No class selected ── */}
+            {/* Stats Cards */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} sm={8}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: '4px solid #1890ff',
+                            borderRadius: '10px',
+                            backgroundColor: '#e6f7ff'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Total Classes
+                                </div>
+                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#1890ff' }}>
+                                    {totalEntries}
+                                </div>
+                            </div>
+                            <BookOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: '4px solid #52c41a',
+                            borderRadius: '10px',
+                            backgroundColor: '#f6ffed'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Unique Subjects
+                                </div>
+                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#52c41a' }}>
+                                    {uniqueSubjects}
+                                </div>
+                            </div>
+                            <BookOutlined style={{ fontSize: '48px', color: '#52c41a' }} />
+                        </div>
+                    </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                    <Card 
+                        hoverable 
+                        style={{ 
+                            borderTop: '4px solid #faad14',
+                            borderRadius: '10px',
+                            backgroundColor: '#fff7e6'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '8px' }}>
+                                    Assigned Teachers
+                                </div>
+                                <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#faad14' }}>
+                                    {uniqueTeachers}
+                                </div>
+                            </div>
+                            <UserOutlined style={{ fontSize: '48px', color: '#faad14' }} />
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Controls Card */}
+            <Card style={{ marginBottom: 16, borderRadius: '10px' }}>
+                <Space wrap size="middle" style={{ width: '100%' }}>
+                    <div style={{ minWidth: 200 }}>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            <BookOutlined /> Select Class
+                        </div>
+                        <Select
+                            placeholder="Choose a class"
+                            style={{ width: '100%' }}
+                            onChange={(val) => setSelectedClass(val)}
+                            value={selectedClass}
+                            size="large"
+                            allowClear
+                        >
+                            {classes.map((cls) => (
+                                <Option key={cls._id} value={cls._id}>
+                                    {cls.name}
+                                </Option>
+                            ))}
+                        </Select>
+                    </div>
+
+                    <div>
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4, fontWeight: 500 }}>
+                            View Mode
+                        </div>
+                        <Select
+                            value={view}
+                            onChange={setView}
+                            style={{ width: 140 }}
+                            size="large"
+                        >
+                            <Option value="grid">
+                                <AppstoreOutlined /> Weekly Grid
+                            </Option>
+                            <Option value="table">
+                                <TableOutlined /> Table View
+                            </Option>
+                        </Select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => selectedClass && fetchTimetable(selectedClass)}
+                            disabled={!selectedClass}
+                            size="large"
+                        >
+                            Refresh
+                        </Button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => setIsModalVisible(true)}
+                            disabled={!selectedClass}
+                            size="large"
+                        >
+                            Add Entry
+                        </Button>
+                    </div>
+                </Space>
+            </Card>
+
+            {/* No class selected */}
             {!selectedClass && (
-                <Card>
-                    <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c' }}>
-                        Please select a class to view its timetable
+                <Card style={{ borderRadius: '10px' }}>
+                    <div style={{ textAlign: 'center', padding: 60, color: '#8c8c8c' }}>
+                        <BookOutlined style={{ fontSize: 64, marginBottom: 16 }} />
+                        <div style={{ fontSize: 16 }}>Please select a class to view its timetable</div>
                     </div>
                 </Card>
             )}
 
-            {/* ── Table view ── */}
+            {/* Table view */}
             {selectedClass && view === 'table' && (
                 <Table
                     columns={columns}
@@ -400,12 +529,15 @@ const Timetable = () => {
                     loading={loading}
                     pagination={{
                         pageSize: 10,
-                        showTotal: (t) => `Total ${t} entries`,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Total ${total} entries`,
+                        pageSizeOptions: ['10', '20', '50'],
                     }}
+                    scroll={{ x: 800 }}
                 />
             )}
 
-            {/* ── Weekly grid view ── */}
+            {/* Weekly grid view (default) - Previous better design */}
             {selectedClass && view === 'grid' && (
                 loading ? (
                     <div style={{ textAlign: 'center', padding: 60 }}>
@@ -416,9 +548,14 @@ const Timetable = () => {
                 )
             )}
 
-            {/* ── Create Modal ── */}
+            {/* Create Modal */}
             <Modal
-                title="Add Timetable Entry"
+                title={
+                    <Space>
+                        <PlusOutlined style={{ color: '#1890ff' }} />
+                        <span>Add Timetable Entry</span>
+                    </Space>
+                }
                 open={isModalVisible}
                 onCancel={() => {
                     setIsModalVisible(false);
@@ -426,20 +563,88 @@ const Timetable = () => {
                 }}
                 footer={null}
                 destroyOnClose
+                width={500}
             >
                 <Form layout="vertical" onFinish={handleCreate} form={form}>
-                    <TimetableFormFields />
+                    <Form.Item
+                        name="dayOfWeek"
+                        label="Day of Week"
+                        rules={[{ required: true, message: 'Please select day' }]}
+                    >
+                        <Select placeholder="Select day" size="large">
+                            {DAY_ORDER.map((d) => (
+                                <Option key={d} value={d}>{d}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="timeSlot"
+                        label="Time Slot"
+                        rules={[{ required: true, message: 'Please select time slot' }]}
+                    >
+                        <Select placeholder="Select time slot" size="large">
+                            {TIME_SLOTS.map((t) => (
+                                <Option key={t} value={t}>{t}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="subject"
+                        label="Subject"
+                        rules={[{ required: true, message: 'Please enter subject' }]}
+                    >
+                        <Input placeholder="e.g. Mathematics" size="large" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="teacherId"
+                        label="Teacher"
+                        rules={[{ required: true, message: 'Please select teacher' }]}
+                    >
+                        <Select
+                            placeholder="Select teacher"
+                            showSearch
+                            optionFilterProp="children"
+                            size="large"
+                        >
+                            {teachers.map((t) => (
+                                <Option key={t._id} value={t._id}>
+                                    <Space>
+                                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                                        <span>{t.name}</span>
+                                        <Tag color="cyan">{t.subject}</Tag>
+                                    </Space>
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="roomLocation"
+                        label="Room / Location"
+                        rules={[{ required: true, message: 'Please enter room' }]}
+                    >
+                        <Input placeholder="e.g. Room 101" size="large" />
+                    </Form.Item>
+
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={submitLoading}>
+                        <Button type="primary" htmlType="submit" block loading={submitLoading} size="large">
                             Add Entry
                         </Button>
                     </Form.Item>
                 </Form>
             </Modal>
 
-            {/* ── Edit Modal ── */}
+            {/* Edit Modal */}
             <Modal
-                title="Edit Timetable Entry"
+                title={
+                    <Space>
+                        <EditOutlined style={{ color: '#1890ff' }} />
+                        <span>Edit Timetable Entry</span>
+                    </Space>
+                }
                 open={isEditModalVisible}
                 onCancel={() => {
                     setIsEditModalVisible(false);
@@ -448,11 +653,74 @@ const Timetable = () => {
                 }}
                 footer={null}
                 destroyOnClose
+                width={500}
             >
                 <Form layout="vertical" onFinish={handleEditSave} form={editForm}>
-                    <TimetableFormFields />
+                    <Form.Item
+                        name="dayOfWeek"
+                        label="Day of Week"
+                        rules={[{ required: true, message: 'Please select day' }]}
+                    >
+                        <Select placeholder="Select day" size="large">
+                            {DAY_ORDER.map((d) => (
+                                <Option key={d} value={d}>{d}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="timeSlot"
+                        label="Time Slot"
+                        rules={[{ required: true, message: 'Please select time slot' }]}
+                    >
+                        <Select placeholder="Select time slot" size="large">
+                            {TIME_SLOTS.map((t) => (
+                                <Option key={t} value={t}>{t}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="subject"
+                        label="Subject"
+                        rules={[{ required: true, message: 'Please enter subject' }]}
+                    >
+                        <Input placeholder="e.g. Mathematics" size="large" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="teacherId"
+                        label="Teacher"
+                        rules={[{ required: true, message: 'Please select teacher' }]}
+                    >
+                        <Select
+                            placeholder="Select teacher"
+                            showSearch
+                            optionFilterProp="children"
+                            size="large"
+                        >
+                            {teachers.map((t) => (
+                                <Option key={t._id} value={t._id}>
+                                    <Space>
+                                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                                        <span>{t.name}</span>
+                                        <Tag color="cyan">{t.subject}</Tag>
+                                    </Space>
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name="roomLocation"
+                        label="Room / Location"
+                        rules={[{ required: true, message: 'Please enter room' }]}
+                    >
+                        <Input placeholder="e.g. Room 101" size="large" />
+                    </Form.Item>
+
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={submitLoading}>
+                        <Button type="primary" htmlType="submit" block loading={submitLoading} size="large">
                             Update Entry
                         </Button>
                     </Form.Item>
