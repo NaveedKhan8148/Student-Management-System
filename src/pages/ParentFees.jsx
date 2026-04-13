@@ -29,17 +29,24 @@ const ParentFees = () => {
         if (child?._id) fetchFees(child._id);
     }, [child]);
 
-    const fetchFees = async (studentId) => {
-        setLoadingFees(true);
-        try {
-            const res = await axios.get(`/api/v1/fees/student/${studentId}`);
-            setFees(res.data.data || []);
-        } catch {
-            // silent
-        } finally {
-            setLoadingFees(false);
-        }
-    };
+const fetchFees = async (studentId) => {
+    setLoadingFees(true);
+    try {
+        const res = await axios.get(`/api/v1/fees/student/${studentId}`);
+        // Normalize Decimal128 → plain number
+        const normalized = (res.data.data || []).map((fee) => ({
+            ...fee,
+            amount: fee.amount?.$numberDecimal
+                ? Number(fee.amount.$numberDecimal)
+                : Number(fee.amount),
+        }));
+        setFees(normalized);
+    } catch {
+        // silent
+    } finally {
+        setLoadingFees(false);
+    }
+};
 
     // Filter fees
     const filteredFees = useMemo(() => {
