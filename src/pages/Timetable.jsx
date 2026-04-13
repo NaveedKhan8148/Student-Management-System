@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Calendar, Badge, Modal, Form, Input, Select, Button,
+    Modal, Form, Input, Select, Button,
     message, Table, Tag, Space, Popconfirm, Card, Row, Col, Spin,
     Typography, Tooltip, Avatar
 } from 'antd';
@@ -9,7 +9,6 @@ import {
     BookOutlined, UserOutlined, ClockCircleOutlined, EnvironmentOutlined,
     CalendarOutlined, TableOutlined, AppstoreOutlined
 } from '@ant-design/icons';
-import dayjs from 'dayjs';
 import axios from 'axios';
 
 const { Title, Text } = Typography;
@@ -70,13 +69,41 @@ const Timetable = () => {
         }
     }, [selectedClass]);
 
+    // Helper function to extract error message from HTML response
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response first
+        if (error.response?.data) {
+            // Check if it's JSON
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // Check if it's HTML/string
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // If no HTML pattern, return the string if it's short
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     // Fetch helpers
     const fetchClasses = async () => {
         try {
             const res = await axios.get('/api/v1/classes/');
             setClasses(res.data.data?.classes || res.data.data || []);
-        } catch {
-            message.error('Failed to fetch classes');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -84,8 +111,9 @@ const Timetable = () => {
         try {
             const res = await axios.get('/api/v1/teachers/');
             setTeachers(res.data.data?.teachers || res.data.data || []);
-        } catch {
-            message.error('Failed to fetch teachers');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -94,8 +122,9 @@ const Timetable = () => {
         try {
             const res = await axios.get(`/api/v1/timetable/class/${classId}`);
             setTimetable(res.data.data || []);
-        } catch {
-            message.error('Failed to fetch timetable');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -104,6 +133,7 @@ const Timetable = () => {
     // Handlers
     const handleCreate = async (values) => {
         setSubmitLoading(true);
+        
         try {
             await axios.post('/api/v1/timetable/', {
                 classId: selectedClass,
@@ -113,12 +143,14 @@ const Timetable = () => {
                 subject: values.subject,
                 roomLocation: values.roomLocation,
             });
-            message.success('Timetable entry created');
+            message.success('Timetable entry created successfully');
             setIsModalVisible(false);
             form.resetFields();
             fetchTimetable(selectedClass);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to create entry');
+            // Extract and show only the specific error reason
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -138,6 +170,7 @@ const Timetable = () => {
 
     const handleEditSave = async (values) => {
         setSubmitLoading(true);
+        
         try {
             await axios.patch(`/api/v1/timetable/${editingEntry._id}`, {
                 teacherId: values.teacherId,
@@ -146,13 +179,14 @@ const Timetable = () => {
                 subject: values.subject,
                 roomLocation: values.roomLocation,
             });
-            message.success('Timetable entry updated');
+            message.success('Timetable entry updated successfully');
             setIsEditModalVisible(false);
             editForm.resetFields();
             setEditingEntry(null);
             fetchTimetable(selectedClass);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to update entry');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -161,10 +195,11 @@ const Timetable = () => {
     const handleDelete = async (id) => {
         try {
             await axios.delete(`/api/v1/timetable/${id}`);
-            message.success('Entry deleted');
+            message.success('Timetable entry deleted successfully');
             fetchTimetable(selectedClass);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to delete entry');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -241,7 +276,7 @@ const Timetable = () => {
         },
     ];
 
-    // Weekly grid view - Previous better design
+    // Weekly grid view
     const WeeklyGrid = () => (
         <Row gutter={[16, 16]}>
             {DAY_ORDER.map((day) => {
@@ -537,7 +572,7 @@ const Timetable = () => {
                 />
             )}
 
-            {/* Weekly grid view (default) - Previous better design */}
+            {/* Weekly grid view */}
             {selectedClass && view === 'grid' && (
                 loading ? (
                     <div style={{ textAlign: 'center', padding: 60 }}>

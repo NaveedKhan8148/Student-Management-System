@@ -10,9 +10,7 @@ import {
     BookOutlined, IdcardOutlined, CalendarOutlined, SaveOutlined,
     TeamOutlined, CheckCircleOutlined, CloseCircleOutlined
 } from '@ant-design/icons';
-import { teacherService } from '../services/teacherService';
-import { feesData } from '../data/fees';
-import { attendanceData } from '../data/attendance';
+import axios from 'axios';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -27,6 +25,23 @@ const Teachers = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        if (error.response?.data) {
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            if (typeof error.response.data === 'string') {
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) return htmlMatch[1].trim();
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) return preMatch[1].trim();
+                if (error.response.data.length < 200) return error.response.data;
+            }
+        }
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         fetchTeachers();
     }, []);
@@ -34,9 +49,10 @@ const Teachers = () => {
     const fetchTeachers = async () => {
         setLoading(true);
         try {
-            const response = await teacherService.getAllTeachers();
+            const res = await axios.get('/api/v1/teachers/');
+            const teachersData = res.data.data?.teachers || res.data.data || [];
             
-            const formattedTeachers = response.map((teacher) => ({
+            const formattedTeachers = teachersData.map((teacher) => ({
                 key: teacher._id,
                 _id: teacher._id,
                 name: teacher.name || '',
@@ -53,9 +69,10 @@ const Teachers = () => {
             }));
             
             setTeachers(formattedTeachers);
-        } catch (error) {
-            console.error('Error fetching teachers:', error);
-            message.error(error.message || 'Failed to fetch teachers');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Error fetching teachers:', errorMsg);
+            message.error(errorMsg);
             setTeachers([]);
         } finally {
             setLoading(false);
@@ -79,19 +96,7 @@ const Teachers = () => {
     const activeTeachers = teachers.filter(t => t.status === 'ACTIVE').length;
     const inactiveTeachers = totalTeachers - activeTeachers;
 
-    // Static data for fees and attendance
-    const totalCollected = feesData
-        .filter((item) => item.status === 'Paid')
-        .reduce((sum, item) => sum + item.amount, 0);
-
-    const totalPending = feesData
-        .filter((item) => item.status === 'Pending')
-        .reduce((sum, item) => sum + item.amount, 0);
-
-    const totalPresent = attendanceData.filter((item) => item.status === 'Present').length;
-    const totalAbsent = attendanceData.filter((item) => item.status === 'Absent').length;
-
-    // Stats Cards
+    // Stats Cards (removed static fee and attendance data)
     const statsCards = [
         { 
             title: 'Total Teachers', 
@@ -235,7 +240,7 @@ const Teachers = () => {
                     <Popconfirm
                         title="Delete Teacher"
                         description={`Are you sure you want to delete ${record.name}?`}
-                        onConfirm={() => handleDelete(record)}
+                        onConfirm={() => handleDelete(record._id)}
                         okText="Yes"
                         cancelText="No"
                         okButtonProps={{ danger: true }}
@@ -265,27 +270,15 @@ const Teachers = () => {
         setIsModalVisible(true);
     };
 
-    const handleDelete = (record) => {
-        Modal.confirm({
-            title: 'Are you sure you want to delete this teacher?',
-            content: `Teacher: ${record.name}`,
-            okText: 'Yes, Delete',
-            okType: 'danger',
-            cancelText: 'Cancel',
-            onOk: async () => {
-                try {
-                    setLoading(true);
-                    await teacherService.deleteTeacher(record._id);
-                    message.success('Teacher deleted successfully');
-                    fetchTeachers();
-                } catch (error) {
-                    console.error('Error deleting teacher:', error);
-                    message.error(error.message || 'Failed to delete teacher');
-                } finally {
-                    setLoading(false);
-                }
-            },
-        });
+    const handleDelete = async (id) => {
+        try {
+            await axios.delete(`/api/v1/teachers/${id}`);
+            message.success('Teacher deleted successfully');
+            fetchTeachers();
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
+        }
     };
 
     const handleSave = async (values) => {
@@ -314,7 +307,7 @@ const Teachers = () => {
                     }
                 });
                 
-                await teacherService.updateTeacher(editingTeacher._id, cleanPayload);
+                await axios.patch(`/api/v1/teachers/${editingTeacher._id}`, cleanPayload);
                 message.success('Teacher updated successfully');
             } else {
                 if (!payload.password) {
@@ -323,21 +316,16 @@ const Teachers = () => {
                     return;
                 }
                 
-                await teacherService.addTeacher(payload);
+                await axios.post('/api/v1/teachers/', payload);
                 message.success('Teacher added successfully');
             }
 
-            await fetchTeachers();
+            fetchTeachers();
             handleCancel();
-        } catch (error) {
-            console.error('Error in handleSave:', error);
-            
-            if (error.message === 'EMAIL_ALREADY_EXISTS' ||
-                error.message?.toLowerCase().includes('email already exists')) {
-                message.error('This email is already registered. Please use a different email address.');
-            } else {
-                message.error(error.message || 'Failed to save teacher');
-            }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Error in handleSave:', err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }

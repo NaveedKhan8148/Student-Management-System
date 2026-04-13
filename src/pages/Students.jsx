@@ -9,8 +9,6 @@ import {
     CalendarOutlined, HomeOutlined, TeamOutlined, SaveOutlined,
     CheckCircleOutlined, CloseCircleOutlined, DollarOutlined
 } from '@ant-design/icons';
-import { feesData } from '../data/fees';
-import { attendanceData } from '../data/attendance';
 import axios from 'axios';
 import dayjs from 'dayjs';
 
@@ -27,6 +25,38 @@ const Students = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         fetchStudents();
         fetchClasses();
@@ -38,7 +68,8 @@ const Students = () => {
             const res = await axios.get('/api/v1/students/');
             setStudents(res.data.data || []);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to fetch students');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setTableLoading(false);
         }
@@ -49,7 +80,8 @@ const Students = () => {
             const res = await axios.get('/api/v1/classes/');
             setClasses(res.data.data?.classes || res.data.data || []);
         } catch (err) {
-            message.error('Failed to fetch classes');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -71,18 +103,7 @@ const Students = () => {
     ).length;
     const activeStudents = totalStudents - inactiveStudents;
 
-    const totalCollected = feesData
-        .filter((item) => item.status === 'Paid')
-        .reduce((sum, item) => sum + item.amount, 0);
-
-    const totalPending = feesData
-        .filter((item) => item.status === 'Pending')
-        .reduce((sum, item) => sum + item.amount, 0);
-
-    const totalPresent = attendanceData.filter((item) => item.status === 'Present').length;
-    const totalAbsent = attendanceData.filter((item) => item.status === 'Absent').length;
-
-    // Stats Cards
+    // Stats Cards (removed hardcoded fee and attendance data)
     const statsCards = [
         { 
             title: 'Total Students', 
@@ -107,30 +128,6 @@ const Students = () => {
             bgColor: '#fff2f0',
             icon: <CloseCircleOutlined />,
             subtitle: 'Inactive accounts'
-        },
-        { 
-            title: 'Pending Fee', 
-            value: `Rs ${totalPending.toLocaleString()}`, 
-            color: '#faad14', 
-            bgColor: '#fff7e6',
-            icon: <DollarOutlined />,
-            subtitle: 'Due payments'
-        },
-        { 
-            title: 'Total Present', 
-            value: totalPresent, 
-            color: '#52c41a', 
-            bgColor: '#f6ffed',
-            icon: <CheckCircleOutlined />,
-            subtitle: "Today's attendance"
-        },
-        { 
-            title: 'Total Absent', 
-            value: totalAbsent, 
-            color: '#ff4d4f', 
-            bgColor: '#fff2f0',
-            icon: <CloseCircleOutlined />,
-            subtitle: "Today's attendance"
         },
     ];
 
@@ -285,7 +282,8 @@ const Students = () => {
                     message.success('Student deleted successfully');
                     fetchStudents();
                 } catch (err) {
-                    message.error(err.response?.data?.message || 'Failed to delete student');
+                    const errorMsg = extractErrorMessage(err);
+                    message.error(errorMsg);
                 }
             },
         });
@@ -325,8 +323,9 @@ const Students = () => {
             fetchStudents();
             handleCancel();
         } catch (err) {
+            const errorMsg = extractErrorMessage(err);
             console.error('Save error:', err);
-            message.error(err.response?.data?.message || 'Operation failed');
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -357,7 +356,7 @@ const Students = () => {
             {/* Stats Cards */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 {statsCards.map((card, index) => (
-                    <Col xs={24} sm={12} lg={4} key={index}>
+                    <Col xs={24} sm={12} lg={6} key={index}>
                         <Card 
                             hoverable 
                             style={{ 

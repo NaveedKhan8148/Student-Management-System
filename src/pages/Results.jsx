@@ -72,6 +72,38 @@ const Results = () => {
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     // Create a map for quick class lookup
     const classMap = useMemo(() => {
         const map = {};
@@ -105,8 +137,9 @@ const Results = () => {
         try {
             const res = await axios.get('/api/v1/students/');
             setStudents(res.data.data || []);
-        } catch {
-            message.error('Failed to fetch students');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -115,8 +148,9 @@ const Results = () => {
             const res = await axios.get('/api/v1/classes/');
             const classesData = res.data.data?.classes || res.data.data || [];
             setClasses(classesData);
-        } catch {
-            message.error('Failed to fetch classes');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -131,7 +165,7 @@ const Results = () => {
             const student = students.find((s) => s._id === studentId);
             
             // Enrich results with student info and resolve class name
-            const enriched = res.data.data.map((r) => {
+            const enriched = (res.data.data || []).map((r) => {
                 // Get class ID (could be object or string)
                 let classId = r.classId;
                 let className = '';
@@ -153,9 +187,10 @@ const Results = () => {
             });
 
             setResults(enriched);
-        } catch (error) {
-            console.error('Error fetching results:', error);
-            message.error('Failed to fetch results');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
+            setResults([]);
         } finally {
             setTableLoading(false);
         }
@@ -169,7 +204,7 @@ const Results = () => {
                 : `/api/v1/results/class/${classId}`;
             const res = await axios.get(url);
 
-            const enriched = res.data.data.map((r) => {
+            const enriched = (res.data.data || []).map((r) => {
                 const student = students.find(
                     (s) => s._id === (r.studentId?._id || r.studentId)
                 );
@@ -195,8 +230,10 @@ const Results = () => {
             });
 
             setResults(enriched);
-        } catch {
-            message.error('Failed to fetch results');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
+            setResults([]);
         } finally {
             setTableLoading(false);
         }
@@ -209,7 +246,7 @@ const Results = () => {
                     axios
                         .get(`/api/v1/results/student/${s._id}`)
                         .then((r) =>
-                            r.data.data.map((result) => {
+                            (r.data.data || []).map((result) => {
                                 // Get class name
                                 let className = '';
                                 let classIdValue = result.classId;
@@ -230,12 +267,16 @@ const Results = () => {
                                 };
                             })
                         )
-                        .catch(() => [])
+                        .catch((err) => {
+                            console.error(`Failed to fetch results for student ${s._id}:`, extractErrorMessage(err));
+                            return [];
+                        })
                 )
             );
             setAllResults(fetches.flat());
-        } catch {
-            // silent
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Failed to fetch all results:', errorMsg);
         }
     };
 
@@ -254,7 +295,7 @@ const Results = () => {
     // Stats calculations based on FILTERED results
     const totalResults = filteredResults.length;
     const avgMarks = totalResults > 0
-        ? (filteredResults.reduce((s, r) => s + r.marks, 0) / totalResults).toFixed(1)
+        ? (filteredResults.reduce((s, r) => s + (r.marks || 0), 0) / totalResults).toFixed(1)
         : 0;
     const passCount = filteredResults.filter((r) => r.grade !== 'F').length;
     const failCount = filteredResults.filter((r) => r.grade === 'F').length;
@@ -323,7 +364,8 @@ const Results = () => {
             }
             fetchAllResults();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to save marks');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -356,7 +398,8 @@ const Results = () => {
             }
             fetchAllResults();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to update result');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -365,7 +408,7 @@ const Results = () => {
     const handleDelete = async (id) => {
         try {
             await axios.delete(`/api/v1/results/${id}`);
-            message.success('Result deleted');
+            message.success('Result deleted successfully');
             if (filterMode === 'student' && selectedStudent) {
                 fetchResultsByStudent(selectedStudent, selectedSemester);
             } else if (filterMode === 'class' && selectedClass) {
@@ -373,7 +416,8 @@ const Results = () => {
             }
             fetchAllResults();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to delete result');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -473,7 +517,7 @@ const Results = () => {
                     </Space>
                 </Tooltip>
             ),
-            sorter: (a, b) => a.marks - b.marks,
+            sorter: (a, b) => (a.marks || 0) - (b.marks || 0),
         },
         {
             title: 'Grade',
@@ -483,7 +527,7 @@ const Results = () => {
                 <Tag 
                     color={GRADE_COLOR[grade] || 'default'}
                     style={{ 
-                        backgroundColor: GRADE_BG_COLOR[grade],
+                        backgroundColor: GRADE_BG_COLOR[grade] || '#fafafa',
                         fontWeight: 'bold',
                         fontSize: '14px',
                         padding: '4px 12px',

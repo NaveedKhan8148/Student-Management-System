@@ -32,6 +32,38 @@ const TeacherClassAttendance = () => {
     const todayStr = today.format('YYYY-MM-DD');
     const todayLabel = today.format('DD MMM YYYY');
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         if (classId) {
             fetchClassInfo();
@@ -44,7 +76,10 @@ const TeacherClassAttendance = () => {
         try {
             const res = await axios.get(`/api/v1/classes/${classId}`);
             setClassInfo(res.data.data);
-        } catch { /* silent */ }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Failed to fetch class info:', errorMsg);
+        }
     };
 
     const fetchStudents = async () => {
@@ -56,8 +91,9 @@ const TeacherClassAttendance = () => {
             const init = {};
             list.forEach((s) => { init[s._id] = 'Present'; });
             setAttendance((prev) => ({ ...init, ...prev }));
-        } catch {
-            message.error('Failed to fetch students');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -78,7 +114,11 @@ const TeacherClassAttendance = () => {
             });
             setAttendance((prev) => ({ ...prev, ...statusMap }));
             setExistingRecords(idMap);
-        } catch { /* no records yet is fine */ }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Failed to fetch existing attendance:', errorMsg);
+            // No records yet is fine - continue with default values
+        }
     };
 
     const handleSetStatus = (studentId, status) => {
@@ -117,7 +157,8 @@ const TeacherClassAttendance = () => {
             message.success(`Attendance saved for ${todayStr}`);
             fetchExistingAttendance();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to save attendance');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSaving(false);
         }

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Table, Button, Input, Space, Tag, Modal, Form, Select,
-    message, Card, Row, Col, Popconfirm, Tooltip, Avatar, Typography, Badge
+    message, Card, Row, Col, Popconfirm, Tooltip, Avatar, Typography, Badge, DatePicker
 } from 'antd';
 import {
     PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined,
     ReloadOutlined, BookOutlined, UserOutlined, TeamOutlined,
-    SaveOutlined, ClockCircleOutlined
+    SaveOutlined, ClockCircleOutlined, CalendarOutlined, PartitionOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -24,6 +24,38 @@ const Classes = () => {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [form] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         fetchClasses();
         fetchTeachers();
@@ -35,7 +67,8 @@ const Classes = () => {
             const res = await axios.get('/api/v1/classes/');
             setClasses(res.data.data?.classes || res.data.data || []);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to fetch classes');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setTableLoading(false);
         }
@@ -46,7 +79,8 @@ const Classes = () => {
             const res = await axios.get('/api/v1/teachers/');
             setTeachers(res.data.data?.teachers || res.data.data || []);
         } catch (err) {
-            message.error('Failed to fetch teachers');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -56,6 +90,8 @@ const Classes = () => {
         
         return classes.filter((record) =>
             (record.name || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (record.section || '').toLowerCase().includes(searchText.toLowerCase()) ||
+            (record.academicYear || '').toLowerCase().includes(searchText.toLowerCase()) ||
             (record.classTeacherId?.name || '').toLowerCase().includes(searchText.toLowerCase())
         );
     }, [classes, searchText]);
@@ -114,6 +150,30 @@ const Classes = () => {
                     <BookOutlined style={{ color: '#1890ff' }} />
                     <span style={{ fontWeight: 500 }}>{name}</span>
                 </Space>
+            ),
+        },
+        {
+            title: 'Section',
+            dataIndex: 'section',
+            key: 'section',
+            width: 100,
+            render: (section) => section ? (
+                <Tag color="blue" icon={<PartitionOutlined />}>{section}</Tag>
+            ) : (
+                <Text type="secondary">—</Text>
+            ),
+        },
+        {
+            title: 'Academic Year',
+            dataIndex: 'academicYear',
+            key: 'academicYear',
+            width: 120,
+            render: (academicYear) => academicYear ? (
+                <Tag color="purple" icon={<CalendarOutlined />}>
+                    {dayjs(academicYear).format('YYYY')}
+                </Tag>
+            ) : (
+                <Text type="secondary">—</Text>
             ),
         },
         {
@@ -198,6 +258,8 @@ const Classes = () => {
         setEditingClass(record);
         form.setFieldsValue({
             name: record.name,
+            section: record.section,
+            academicYear: record.academicYear ? dayjs(record.academicYear) : null,
             classTeacherId: record.classTeacherId?._id,
         });
         setIsModalVisible(true);
@@ -209,30 +271,35 @@ const Classes = () => {
             message.success('Class deleted successfully');
             fetchClasses();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to delete class');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
     const handleSave = async (values) => {
         setSubmitLoading(true);
         try {
+            const payload = {
+                name: values.name,
+                section: values.section,
+                academicYear: values.academicYear ? dayjs(values.academicYear).format('YYYY-MM-DD') : null,
+                classTeacherId: values.classTeacherId,
+            };
+
             if (editingClass) {
-                await axios.patch(`/api/v1/classes/${editingClass._id}`, {
-                    name: values.name,
-                    classTeacherId: values.classTeacherId,
-                });
+                await axios.patch(`/api/v1/classes/${editingClass._id}`, payload);
                 message.success('Class updated successfully');
+                fetchClasses();
+                handleCancel();
             } else {
-                await axios.post('/api/v1/classes/', {
-                    name: values.name,
-                    classTeacherId: values.classTeacherId,
-                });
+                await axios.post('/api/v1/classes/', payload);
                 message.success('Class created successfully');
+                fetchClasses();
+                handleCancel();
             }
-            fetchClasses();
-            handleCancel();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Operation failed');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -303,7 +370,7 @@ const Classes = () => {
                             Search
                         </div>
                         <Input
-                            placeholder="Search by class name or teacher..."
+                            placeholder="Search by class name, section, or teacher..."
                             prefix={<SearchOutlined />}
                             onChange={(e) => setSearchText(e.target.value)}
                             allowClear
@@ -357,7 +424,7 @@ const Classes = () => {
                     showTotal: (total) => `Total ${total} classes`,
                     pageSizeOptions: ['10', '20', '50', '100'],
                 }}
-                scroll={{ x: 800 }}
+                scroll={{ x: 1000 }}
             />
 
             {/* Add/Edit Modal */}
@@ -384,6 +451,33 @@ const Classes = () => {
                             placeholder="e.g., Grade 10, Class 5, O-Level" 
                             size="large"
                             prefix={<BookOutlined style={{ color: '#8c8c8c' }} />}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="section"
+                        label="Section"
+                        rules={[{ required: true, message: 'Please enter section' }]}
+                    >
+                        <Input 
+                            placeholder="e.g., A, B, C, Science, Arts" 
+                            size="large"
+                            prefix={<PartitionOutlined style={{ color: '#8c8c8c' }} />}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="academicYear"
+                        label="Academic Year"
+                        rules={[{ required: true, message: 'Please select academic year' }]}
+                    >
+                        <DatePicker 
+                            style={{ width: '100%' }}
+                            size="large"
+                            picker="year"
+                            placeholder="Select academic year"
+                            format="YYYY"
+                            suffixIcon={<CalendarOutlined />}
                         />
                     </Form.Item>
 

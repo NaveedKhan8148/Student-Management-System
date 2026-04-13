@@ -26,6 +26,38 @@ const Parents = () => {
     const [form] = Form.useForm();
     const [linkForm] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         fetchParents();
         fetchStudents();
@@ -39,7 +71,8 @@ const Parents = () => {
             setParents(parentsData);
             fetchAllLinkedStudents(parentsData);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to fetch parents');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setTableLoading(false);
         }
@@ -52,7 +85,10 @@ const Parents = () => {
                     axios
                         .get(`/api/v1/parents/${parent._id}/students`)
                         .then((res) => ({ id: parent._id, count: res.data.data?.length || 0 }))
-                        .catch(() => ({ id: parent._id, count: 0 }))
+                        .catch((err) => {
+                            console.error(`Failed to fetch linked students for parent ${parent._id}:`, extractErrorMessage(err));
+                            return { id: parent._id, count: 0 };
+                        })
                 )
             );
             const map = {};
@@ -61,7 +97,8 @@ const Parents = () => {
             });
             setLinkedStudentsMap(map);
         } catch (err) {
-            console.error('Failed to fetch linked students', err);
+            const errorMsg = extractErrorMessage(err);
+            console.error('Failed to fetch linked students:', errorMsg);
         }
     };
 
@@ -70,7 +107,8 @@ const Parents = () => {
             const res = await axios.get('/api/v1/students/');
             setStudents(res.data.data || []);
         } catch (err) {
-            message.error('Failed to fetch students');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -250,7 +288,8 @@ const Parents = () => {
             message.success('Parent deleted successfully');
             fetchParents();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to delete parent');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -277,7 +316,8 @@ const Parents = () => {
             fetchParents();
             handleCancel();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Operation failed');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -307,7 +347,8 @@ const Parents = () => {
             linkForm.resetFields();
             fetchParents();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to link student');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }

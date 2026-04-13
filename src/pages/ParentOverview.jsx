@@ -27,6 +27,52 @@ const ParentOverview = () => {
     });
     const [loadingAlerts, setLoadingAlerts] = useState(false);
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
+    // Helper function to extract amount from MongoDB Decimal128
+    const getAmountValue = (amount) => {
+        if (!amount) return 0;
+        if (typeof amount === 'number') return amount;
+        if (typeof amount === 'string') return parseFloat(amount);
+        if (amount && typeof amount === 'object') {
+            // Handle MongoDB Decimal128 format
+            if (amount.$numberDecimal) return parseFloat(amount.$numberDecimal);
+            // Handle other possible formats
+            if (amount.value) return parseFloat(amount.value);
+        }
+        return 0;
+    };
+
     useEffect(() => {
         if (child?._id) {
             buildAlerts(child._id);
@@ -38,11 +84,11 @@ const ParentOverview = () => {
         const newAlerts = [];
         const newStats = { attendancePct: null, pendingFees: 0, avgMarks: null, warningCount: 0 };
 
+        // Attendance
         try {
-            // Attendance
             const attRes = await axios.get(`/api/v1/attendance/student/${studentId}`);
             const records = attRes.data.data;
-            if (records.length > 0) {
+            if (records && records.length > 0) {
                 const present = records.filter((r) => r.status === 'Present').length;
                 const pct = (present / records.length) * 100;
                 newStats.attendancePct = pct.toFixed(0);
@@ -54,31 +100,41 @@ const ParentOverview = () => {
                     });
                 }
             }
-        } catch { /* silent */ }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Attendance fetch error:', errorMsg);
+            // Silent fail - don't show error to parent
+        }
 
+        // Pending fees (single implementation)
         try {
-            // Pending fees
             const feeRes = await axios.get(`/api/v1/fees/student/${studentId}/pending`);
             const pendingFees = feeRes.data.data;
-            const total = pendingFees.reduce((s, f) => s + Number(f.amount), 0);
+            
+            const total = pendingFees.reduce((s, f) => s + getAmountValue(f.amount), 0);
             newStats.pendingFees = total;
 
             pendingFees.forEach((f) => {
+                const feeAmount = getAmountValue(f.amount);
                 if (f.dueDate && dayjs().isAfter(dayjs(f.dueDate), 'day')) {
                     newAlerts.push({
                         type: 'error',
                         title: 'Fee overdue',
-                        description: `${f.feeType} (Rs ${Number(f.amount).toLocaleString()}) was due on ${dayjs(f.dueDate).format('YYYY-MM-DD')}.`,
+                        description: `${f.feeType} (Rs ${feeAmount.toLocaleString()}) was due on ${dayjs(f.dueDate).format('YYYY-MM-DD')}.`,
                     });
                 }
             });
-        } catch { /* silent */ }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Pending fees fetch error:', errorMsg);
+            // Silent fail - don't show error to parent
+        }
 
+        // Results
         try {
-            // Results
             const resRes = await axios.get(`/api/v1/results/student/${studentId}`);
             const results = resRes.data.data;
-            if (results.length > 0) {
+            if (results && results.length > 0) {
                 const avg = results.reduce((s, r) => s + r.marks, 0) / results.length;
                 newStats.avgMarks = avg.toFixed(0);
                 if (avg < 60) {
@@ -89,40 +145,31 @@ const ParentOverview = () => {
                     });
                 }
             }
-        } catch { /* silent */ }
-
-try {
-    // Pending fees
-    const feeRes = await axios.get(`/api/v1/fees/student/${studentId}/pending`);
-    const pendingFees = feeRes.data.data;
-    
-    // Helper function to extract amount from MongoDB Decimal128
-    const getAmountValue = (amount) => {
-        if (typeof amount === 'number') return amount;
-        if (typeof amount === 'string') return parseFloat(amount);
-        if (amount && typeof amount === 'object') {
-            // Handle MongoDB Decimal128 format
-            if (amount.$numberDecimal) return parseFloat(amount.$numberDecimal);
-            // Handle other possible formats
-            if (amount.value) return parseFloat(amount.value);
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Results fetch error:', errorMsg);
+            // Silent fail - don't show error to parent
         }
-        return 0;
-    };
-    
-    const total = pendingFees.reduce((s, f) => s + getAmountValue(f.amount), 0);
-    newStats.pendingFees = total;
 
-    pendingFees.forEach((f) => {
-        const feeAmount = getAmountValue(f.amount);
-        if (f.dueDate && dayjs().isAfter(dayjs(f.dueDate), 'day')) {
-            newAlerts.push({
-                type: 'error',
-                title: 'Fee overdue',
-                description: `${f.feeType} (Rs ${feeAmount.toLocaleString()}) was due on ${dayjs(f.dueDate).format('YYYY-MM-DD')}.`,
-            });
+        // Academic warnings
+        try {
+            const warnRes = await axios.get(`/api/v1/warnings/student/${studentId}`);
+            const warnings = warnRes.data.data;
+            newStats.warningCount = warnings?.length || 0;
+            if (warnings && warnings.length > 0) {
+                warnings.forEach((w) => {
+                    newAlerts.push({
+                        type: 'error',
+                        title: w.ruleViolated || 'Academic Warning',
+                        description: w.detailDescription || 'No details provided',
+                    });
+                });
+            }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Warnings fetch error:', errorMsg);
+            // Silent fail - don't show error to parent
         }
-    });
-} catch { /* silent */ }
 
         setAlerts(newAlerts);
         setStats(newStats);

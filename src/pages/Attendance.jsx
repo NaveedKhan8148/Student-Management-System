@@ -54,6 +54,38 @@ const Attendance = () => {
         ? ((totalPresent / totalRecords) * 100).toFixed(1)
         : 0;
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     // Effects
     useEffect(() => {
         fetchClasses();
@@ -87,7 +119,8 @@ const Attendance = () => {
             const res = await axios.get('/api/v1/classes/');
             setClasses(res.data.data?.classes || res.data.data || []);
         } catch (err) {
-            message.error('Failed to fetch classes');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -103,7 +136,8 @@ const Attendance = () => {
             setAttendance(init);
             setExistingRecords({});
         } catch (err) {
-            message.error('Failed to fetch students');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setLoadingStudents(false);
         }
@@ -192,7 +226,8 @@ const Attendance = () => {
             
             setWeeklyData(chartData);
         } catch (err) {
-            message.error('Failed to fetch analytics');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setAnalyticsLoading(false);
         }
@@ -247,7 +282,8 @@ const Attendance = () => {
             message.success(`Attendance saved for ${dateStr}`);
             fetchExistingAttendance(selectedClass, selectedDate);
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to save attendance');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSaving(false);
         }

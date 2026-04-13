@@ -25,28 +25,63 @@ const ParentFees = () => {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState(null);
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         if (child?._id) fetchFees(child._id);
     }, [child]);
 
-const fetchFees = async (studentId) => {
-    setLoadingFees(true);
-    try {
-        const res = await axios.get(`/api/v1/fees/student/${studentId}`);
-        // Normalize Decimal128 → plain number
-        const normalized = (res.data.data || []).map((fee) => ({
-            ...fee,
-            amount: fee.amount?.$numberDecimal
-                ? Number(fee.amount.$numberDecimal)
-                : Number(fee.amount),
-        }));
-        setFees(normalized);
-    } catch {
-        // silent
-    } finally {
-        setLoadingFees(false);
-    }
-};
+    const fetchFees = async (studentId) => {
+        setLoadingFees(true);
+        try {
+            const res = await axios.get(`/api/v1/fees/student/${studentId}`);
+            // Normalize Decimal128 → plain number
+            const normalized = (res.data.data || []).map((fee) => ({
+                ...fee,
+                amount: fee.amount?.$numberDecimal
+                    ? Number(fee.amount.$numberDecimal)
+                    : Number(fee.amount),
+            }));
+            setFees(normalized);
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Fees fetch error:', errorMsg);
+            // Silent fail for parent view - don't show error message to avoid confusion
+            setFees([]);
+        } finally {
+            setLoadingFees(false);
+        }
+    };
 
     // Filter fees
     const filteredFees = useMemo(() => {

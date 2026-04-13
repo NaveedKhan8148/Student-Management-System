@@ -28,9 +28,21 @@ const StudentProfile = () => {
         return <Text type="danger">Profile not found.</Text>;
     }
 
+    // Safe access to nested properties
+    const studentName = profile?.studentName || 'Not provided';
+    const rollNo = profile?.rollNo || 'N/A';
+    const className = profile?.classId?.name || 'No Class Assigned';
+    const email = profile?.userId?.email || user?.email || 'Not provided';
+    const phoneNumber = profile?.phoneNumber || 'Not provided';
+    const address = profile?.address || 'Not provided';
+    const dateOfJoining = profile?.dateOfJoining;
+    const createdAt = profile?.createdAt;
+    const studentId = profile?._id;
+    const userStatus = user?.status || 'ACTIVE';
+    
     // Calculate account age
-    const accountAge = profile.createdAt ? dayjs(profile.createdAt).fromNow() : null;
-    const isActive = user?.status === 'ACTIVE';
+    const accountAge = createdAt ? dayjs(createdAt).fromNow() : null;
+    const isActive = userStatus === 'ACTIVE';
 
     return (
         <div>
@@ -67,14 +79,14 @@ const StudentProfile = () => {
                         <Row gutter={[16, 8]}>
                             <Col xs={24}>
                                 <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>
-                                    {profile.studentName}
+                                    {studentName}
                                 </div>
                                 <Space wrap>
                                     <Tag color="blue" icon={<IdcardOutlined />}>
-                                        {profile.rollNo}
+                                        {rollNo}
                                     </Tag>
                                     <Tag color="cyan" icon={<BookOutlined />}>
-                                        {profile.classId?.name || 'No Class Assigned'}
+                                        {className}
                                     </Tag>
                                     {accountAge && (
                                         <Tag color="purple" icon={<CalendarOutlined />}>
@@ -87,21 +99,21 @@ const StudentProfile = () => {
                                 <Text type="secondary" style={{ fontSize: 12 }}>Email Address</Text>
                                 <div style={{ fontWeight: 500 }}>
                                     <MailOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-                                    {profile.userId?.email || user?.email || '-'}
+                                    {email}
                                 </div>
                             </Col>
                             <Col xs={24} sm={12}>
                                 <Text type="secondary" style={{ fontSize: 12 }}>Phone Number</Text>
                                 <div style={{ fontWeight: 500 }}>
                                     <PhoneOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-                                    {profile.phoneNumber || 'Not provided'}
+                                    {phoneNumber}
                                 </div>
                             </Col>
                             <Col xs={24}>
                                 <Text type="secondary" style={{ fontSize: 12 }}>Address</Text>
                                 <div style={{ fontWeight: 500 }}>
                                     <HomeOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-                                    {profile.address || 'Not provided'}
+                                    {address}
                                 </div>
                             </Col>
                         </Row>
@@ -126,7 +138,7 @@ const StudentProfile = () => {
                                     Student ID
                                 </div>
                                 <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1890ff' }}>
-                                    {profile._id?.slice(-8) || 'N/A'}
+                                    {studentId ? studentId.slice(-8) : 'N/A'}
                                 </div>
                             </div>
                             <IdcardOutlined style={{ fontSize: '40px', color: '#1890ff' }} />
@@ -148,7 +160,7 @@ const StudentProfile = () => {
                                     Class & Section
                                 </div>
                                 <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#52c41a' }}>
-                                    {profile.classId?.name || 'N/A'}
+                                    {className}
                                 </div>
                             </div>
                             <TeamOutlined style={{ fontSize: '40px', color: '#52c41a' }} />
@@ -170,8 +182,8 @@ const StudentProfile = () => {
                                     Date of Joining
                                 </div>
                                 <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#faad14' }}>
-                                    {profile.dateOfJoining
-                                        ? dayjs(profile.dateOfJoining).format('YYYY-MM-DD')
+                                    {dateOfJoining
+                                        ? dayjs(dateOfJoining).format('YYYY-MM-DD')
                                         : '-'}
                                 </div>
                             </div>
@@ -194,7 +206,7 @@ const StudentProfile = () => {
                                     Account Status
                                 </div>
                                 <div style={{ fontSize: '20px', fontWeight: 'bold', color: isActive ? '#52c41a' : '#ff4d4f' }}>
-                                    {user?.status || 'ACTIVE'}
+                                    {userStatus}
                                 </div>
                             </div>
                             {isActive ? (
@@ -221,43 +233,49 @@ const StudentProfile = () => {
                     <Descriptions.Item label="Full Name" labelStyle={{ backgroundColor: '#fafafa' }}>
                         <Space>
                             <UserOutlined style={{ color: '#1890ff' }} />
-                            {profile.studentName}
+                            {studentName}
                         </Space>
                     </Descriptions.Item>
                     <Descriptions.Item label="Roll Number" labelStyle={{ backgroundColor: '#fafafa' }}>
-                        <Tag color="blue">{profile.rollNo}</Tag>
+                        <Tag color="blue">{rollNo}</Tag>
                     </Descriptions.Item>
                     <Descriptions.Item label="Email" labelStyle={{ backgroundColor: '#fafafa' }}>
                         <Space>
                             <MailOutlined style={{ color: '#1890ff' }} />
-                            {profile.userId?.email || user?.email || '-'}
+                            {email}
                         </Space>
                     </Descriptions.Item>
                     <Descriptions.Item label="Class" labelStyle={{ backgroundColor: '#fafafa' }}>
                         <Tag color="cyan" icon={<BookOutlined />}>
-                            {profile.classId?.name || '-'}
+                            {className}
                         </Tag>
                     </Descriptions.Item>
                     <Descriptions.Item label="Date of Joining" labelStyle={{ backgroundColor: '#fafafa' }}>
                         <Space>
                             <CalendarOutlined style={{ color: '#faad14' }} />
-                            {profile.dateOfJoining
-                                ? dayjs(profile.dateOfJoining).format('YYYY-MM-DD')
+                            {dateOfJoining
+                                ? dayjs(dateOfJoining).format('YYYY-MM-DD')
                                 : '-'}
                         </Space>
                     </Descriptions.Item>
                     <Descriptions.Item label="Account Created" labelStyle={{ backgroundColor: '#fafafa' }}>
-                        <Tooltip title={profile.createdAt ? dayjs(profile.createdAt).format('YYYY-MM-DD HH:mm:ss') : 'N/A'}>
+                        <Tooltip title={createdAt ? dayjs(createdAt).format('YYYY-MM-DD HH:mm:ss') : 'N/A'}>
                             <Space>
                                 <CalendarOutlined style={{ color: '#1890ff' }} />
-                                {profile.createdAt ? dayjs(profile.createdAt).format('YYYY-MM-DD') : '-'}
+                                {createdAt ? dayjs(createdAt).format('YYYY-MM-DD') : '-'}
                             </Space>
                         </Tooltip>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Phone Number" labelStyle={{ backgroundColor: '#fafafa' }}>
+                        <Space>
+                            <PhoneOutlined style={{ color: '#1890ff' }} />
+                            {phoneNumber}
+                        </Space>
                     </Descriptions.Item>
                     <Descriptions.Item label="Address" span={2} labelStyle={{ backgroundColor: '#fafafa' }}>
                         <Space>
                             <HomeOutlined style={{ color: '#1890ff' }} />
-                            {profile.address || 'Not provided'}
+                            {address}
                         </Space>
                     </Descriptions.Item>
                     <Descriptions.Item label="Account Status" span={2} labelStyle={{ backgroundColor: '#fafafa' }}>

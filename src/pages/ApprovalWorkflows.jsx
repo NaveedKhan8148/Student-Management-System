@@ -39,6 +39,38 @@ const ApprovalWorkflows = () => {
     const [form] = Form.useForm();
     const [remarksForm] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         fetchWorkflows();
         fetchStats();
@@ -58,8 +90,9 @@ const ApprovalWorkflows = () => {
             if (typeFilter) params.append('type', typeFilter);
             const res = await axios.get(`/api/v1/workflows/?${params.toString()}`);
             setRows(res.data.data);
-        } catch {
-            message.error('Failed to fetch workflows');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setTableLoading(false);
         }
@@ -69,8 +102,10 @@ const ApprovalWorkflows = () => {
         try {
             const res = await axios.get('/api/v1/workflows/stats');
             setStats(res.data.data);
-        } catch {
-            // silent
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            // Silent for stats, but log if needed
+            console.error('Stats fetch error:', errorMsg);
         }
     };
 
@@ -78,8 +113,9 @@ const ApprovalWorkflows = () => {
         try {
             const res = await axios.get('/api/v1/students/');
             setStudents(res.data.data);
-        } catch {
-            message.error('Failed to fetch students');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -114,7 +150,8 @@ const ApprovalWorkflows = () => {
             fetchWorkflows();
             fetchStats();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to submit request');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -143,7 +180,8 @@ const ApprovalWorkflows = () => {
             fetchWorkflows();
             fetchStats();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Action failed');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -152,11 +190,12 @@ const ApprovalWorkflows = () => {
     const handleDelete = async (id) => {
         try {
             await axios.delete(`/api/v1/workflows/${id}`);
-            message.success('Workflow request deleted');
+            message.success('Workflow request deleted successfully');
             fetchWorkflows();
             fetchStats();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to delete');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 

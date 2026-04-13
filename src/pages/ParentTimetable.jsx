@@ -17,6 +17,38 @@ const ParentTimetable = () => {
     const [loadingTimetable, setLoadingTimetable] = useState(false);
     const [view, setView] = useState('grid'); // 'grid' | 'calendar' | 'table'
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         if (child?.classId?._id) {
             fetchTimetable(child.classId._id);
@@ -27,9 +59,12 @@ const ParentTimetable = () => {
         setLoadingTimetable(true);
         try {
             const res = await axios.get(`/api/v1/timetable/class/${classId}`);
-            setTimetable(res.data.data);
-        } catch {
-            // silent
+            setTimetable(res.data.data || []);
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Timetable fetch error:', errorMsg);
+            // Silent fail for parent view - don't show error message to avoid confusion
+            setTimetable([]);
         } finally {
             setLoadingTimetable(false);
         }

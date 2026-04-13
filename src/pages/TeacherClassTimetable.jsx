@@ -38,6 +38,38 @@ const TeacherClassTimetable = () => {
     const [loading, setLoading] = useState(false);
     const [view, setView] = useState('grid'); // Default to 'grid'
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         if (classId) {
             fetchClassInfo();
@@ -49,7 +81,10 @@ const TeacherClassTimetable = () => {
         try {
             const res = await axios.get(`/api/v1/classes/${classId}`);
             setClassInfo(res.data.data);
-        } catch { /* silent */ }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Failed to fetch class info:', errorMsg);
+        }
     };
 
     const fetchTimetable = async () => {
@@ -57,8 +92,10 @@ const TeacherClassTimetable = () => {
         try {
             const res = await axios.get(`/api/v1/timetable/class/${classId}`);
             setTimetable(res.data.data || []);
-        } catch {
-            message.error('Failed to fetch timetable');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
+            setTimetable([]);
         } finally {
             setLoading(false);
         }
@@ -164,7 +201,7 @@ const TeacherClassTimetable = () => {
             dataIndex: 'timeSlot',
             key: 'timeSlot',
             render: (time) => <Tag icon={<ClockCircleOutlined />}>{time}</Tag>,
-            sorter: (a, b) => a.timeSlot.localeCompare(b.timeSlot),
+            sorter: (a, b) => (a.timeSlot || '').localeCompare(b.timeSlot || ''),
         },
         {
             title: 'Subject',
@@ -175,7 +212,7 @@ const TeacherClassTimetable = () => {
                     {subject}
                 </Tag>
             ),
-            sorter: (a, b) => a.subject.localeCompare(b.subject),
+            sorter: (a, b) => (a.subject || '').localeCompare(b.subject || ''),
         },
         {
             title: 'Teacher',

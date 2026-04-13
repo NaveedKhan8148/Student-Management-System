@@ -17,6 +17,38 @@ const { Title, Paragraph, Text } = Typography;
 
 const COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2'];
 
+// Helper function to extract error message from any response format
+const extractErrorMessage = (error) => {
+    // Try to get JSON response
+    if (error.response?.data) {
+        // If it's a JSON object
+        if (typeof error.response.data === 'object') {
+            return error.response.data.message || error.response.data.error || 'Operation failed';
+        }
+        
+        // If it's a string (could be HTML or plain text)
+        if (typeof error.response.data === 'string') {
+            // Try to extract error message from HTML
+            const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+            if (htmlMatch) {
+                return htmlMatch[1].trim();
+            }
+            // Try to extract from pre tags
+            const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+            if (preMatch) {
+                return preMatch[1].trim();
+            }
+            // If it's a short string, return it directly
+            if (error.response.data.length < 200) {
+                return error.response.data;
+            }
+        }
+    }
+    
+    // Fallback to error message
+    return error.message || 'Operation failed';
+};
+
 // Small reusable chart card with loading state
 const ChartCard = ({ title, loading, children }) => (
     <Card 
@@ -107,7 +139,9 @@ const Dashboard = () => {
         try {
             const res = await axios.get('/api/v1/analytics/attendance-by-class');
             setAttendanceData(res.data.data || []);
-        } catch {
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Attendance fetch error:', errorMsg);
             setAttendanceData([]);
         } finally {
             setLoadingAttendance(false);
@@ -119,7 +153,9 @@ const Dashboard = () => {
         try {
             const res = await axios.get('/api/v1/analytics/results-by-semester');
             setSemesterData(res.data.data || []);
-        } catch {
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Semester fetch error:', errorMsg);
             setSemesterData([]);
         } finally {
             setLoadingSemester(false);
@@ -131,7 +167,9 @@ const Dashboard = () => {
         try {
             const res = await axios.get('/api/v1/analytics/fee-collection');
             setFeeData(res.data.data || []);
-        } catch {
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Fees fetch error:', errorMsg);
             setFeeData([]);
         } finally {
             setLoadingFees(false);
@@ -143,7 +181,9 @@ const Dashboard = () => {
         try {
             const res = await axios.get('/api/v1/analytics/performance-distribution');
             setDistributionData(res.data.data || []);
-        } catch {
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Distribution fetch error:', errorMsg);
             setDistributionData([]);
         } finally {
             setLoadingDistribution(false);
@@ -163,8 +203,10 @@ const Dashboard = () => {
             setTotalTeachers(teachers.data.data?.length || 0);
             setTotalClasses(classes.data.data?.length || 0);
             setTotalWarnings(warnings.data.data?.length || 0);
-        } catch {
-            // silent
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Summary stats fetch error:', errorMsg);
+            // Silent fail - keep existing values (0)
         } finally {
             setLoadingStats(false);
         }

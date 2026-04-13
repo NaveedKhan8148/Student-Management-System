@@ -8,7 +8,7 @@ import {
     PlusOutlined, PrinterOutlined, ReloadOutlined,
     CheckOutlined, EditOutlined, DeleteOutlined,
     DollarOutlined, ClockCircleOutlined, WarningOutlined,
-    UserOutlined, FileTextOutlined, SaveOutlined,SearchOutlined  
+    UserOutlined, FileTextOutlined, SaveOutlined, SearchOutlined  
 } from '@ant-design/icons';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -36,6 +36,38 @@ const Fees = () => {
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         fetchStudents();
     }, []);
@@ -61,8 +93,9 @@ const Fees = () => {
         try {
             const res = await axios.get('/api/v1/students/');
             setStudents(res.data.data || []);
-        } catch {
-            message.error('Failed to fetch students');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -76,8 +109,9 @@ const Fees = () => {
                 amount: extractAmount(fee.amount)
             }));
             setFees(processedFees);
-        } catch {
-            message.error('Failed to fetch fees');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setTableLoading(false);
         }
@@ -99,12 +133,16 @@ const Fees = () => {
                                 rollNo: s.rollNo,
                             }));
                         })
-                        .catch(() => [])
+                        .catch((err) => {
+                            console.error(`Failed to fetch fees for student ${s._id}:`, extractErrorMessage(err));
+                            return [];
+                        })
                 )
             );
             setAllFees(results.flat());
-        } catch {
-            message.error('Failed to fetch all fees');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setTableLoading(false);
         }
@@ -230,7 +268,8 @@ const Fees = () => {
             }
             fetchAllFees();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to create fee');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -239,11 +278,12 @@ const Fees = () => {
     const handleMarkPaid = async (feeId) => {
         try {
             await axios.patch(`/api/v1/fees/${feeId}/pay`);
-            message.success('Fee marked as paid');
+            message.success('Fee marked as paid successfully');
             if (selectedStudent) fetchFeesByStudent(selectedStudent);
             fetchAllFees();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to mark as paid');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 
@@ -272,7 +312,8 @@ const Fees = () => {
             if (selectedStudent) fetchFeesByStudent(selectedStudent);
             fetchAllFees();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to update fee');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         } finally {
             setSubmitLoading(false);
         }
@@ -285,7 +326,8 @@ const Fees = () => {
             if (selectedStudent) fetchFeesByStudent(selectedStudent);
             fetchAllFees();
         } catch (err) {
-            message.error(err.response?.data?.message || 'Failed to delete fee');
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
         }
     };
 

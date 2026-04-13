@@ -31,6 +31,38 @@ const StudentFees = () => {
     const [statusFilter, setStatusFilter] = useState(null);
     const [dateRange, setDateRange] = useState(null);
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         if (profile?._id) fetchFees(profile._id);
     }, [profile]);
@@ -40,20 +72,40 @@ const StudentFees = () => {
         try {
             const res = await axios.get(`/api/v1/fees/student/${studentId}`);
             setFees(res.data.data || []);
-        } catch {
-            // silent
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Fees fetch error:', errorMsg);
+            // Silent fail for student view - don't show error message to avoid confusion
+            setFees([]);
         } finally {
             setLoadingFees(false);
         }
     };
 
+    // Helper function to extract amount from Decimal128
+    const extractAmount = (amount) => {
+        if (!amount) return 0;
+        if (typeof amount === 'object' && amount.$numberDecimal) {
+            return parseFloat(amount.$numberDecimal);
+        }
+        return parseFloat(amount) || 0;
+    };
+
+    // Process fees to extract amount from Decimal128
+    const processedFees = useMemo(() => {
+        return fees.map(fee => ({
+            ...fee,
+            amount: extractAmount(fee.amount)
+        }));
+    }, [fees]);
+
     // Filter fees
     const filteredFees = useMemo(() => {
-        let filtered = fees;
+        let filtered = processedFees;
         
         if (searchText) {
             filtered = filtered.filter((f) =>
-                f.feeType.toLowerCase().includes(searchText.toLowerCase())
+                f.feeType?.toLowerCase().includes(searchText.toLowerCase())
             );
         }
         
@@ -70,24 +122,24 @@ const StudentFees = () => {
         }
         
         return filtered;
-    }, [fees, searchText, statusFilter, dateRange]);
+    }, [processedFees, searchText, statusFilter, dateRange]);
 
     // Stats
-    const totalPaid = fees
+    const totalPaid = processedFees
         .filter((f) => f.status === 'Paid')
-        .reduce((s, f) => s + Number(f.amount), 0);
+        .reduce((s, f) => s + (Number(f.amount) || 0), 0);
 
-    const totalPending = fees
+    const totalPending = processedFees
         .filter((f) => f.status === 'Pending')
-        .reduce((s, f) => s + Number(f.amount), 0);
+        .reduce((s, f) => s + (Number(f.amount) || 0), 0);
 
-    const totalOverdue = fees
+    const totalOverdue = processedFees
         .filter((f) => f.status === 'Overdue')
-        .reduce((s, f) => s + Number(f.amount), 0);
+        .reduce((s, f) => s + (Number(f.amount) || 0), 0);
 
-    const paidCount = fees.filter((f) => f.status === 'Paid').length;
-    const pendingCount = fees.filter((f) => f.status === 'Pending').length;
-    const overdueCount = fees.filter((f) => f.status === 'Overdue').length;
+    const paidCount = processedFees.filter((f) => f.status === 'Paid').length;
+    const pendingCount = processedFees.filter((f) => f.status === 'Pending').length;
+    const overdueCount = processedFees.filter((f) => f.status === 'Overdue').length;
     
     const totalFees = totalPaid + totalPending + totalOverdue;
     const paymentRate = totalFees > 0 ? ((totalPaid / totalFees) * 100).toFixed(1) : 0;
@@ -126,7 +178,7 @@ const StudentFees = () => {
             bgColor: '#e6f7ff',
             progress: true,
             progressValue: paymentRate,
-            subtitle: `${fees.length} total records`
+            subtitle: `${processedFees.length} total records`
         }
     ];
 
@@ -164,7 +216,7 @@ const StudentFees = () => {
             title: 'Fee Type',
             dataIndex: 'feeType',
             key: 'feeType',
-            sorter: (a, b) => a.feeType.localeCompare(b.feeType),
+            sorter: (a, b) => (a.feeType || '').localeCompare(b.feeType || ''),
             render: (type) => (
                 <Space>
                     <FileTextOutlined style={{ color: '#1890ff' }} />
@@ -181,7 +233,7 @@ const StudentFees = () => {
                     Rs {Number(amount).toLocaleString()}
                 </span>
             ),
-            sorter: (a, b) => Number(a.amount) - Number(b.amount),
+            sorter: (a, b) => (Number(a.amount) || 0) - (Number(b.amount) || 0),
         },
         {
             title: 'Due Date',
@@ -313,7 +365,7 @@ const StudentFees = () => {
                             </Col>
                             <Col xs={12} sm={6}>
                                 <Text type="secondary" style={{ fontSize: 12 }}>Total Fee Records</Text>
-                                <div style={{ fontWeight: 600 }}>{fees.length}</div>
+                                <div style={{ fontWeight: 600 }}>{processedFees.length}</div>
                             </Col>
                         </Row>
                     </Col>

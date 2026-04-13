@@ -39,6 +39,38 @@ const TeacherClassResults = () => {
     const [semesterFilter, setSemesterFilter] = useState(null);
     const [loading, setLoading] = useState(false);
 
+    // Helper function to extract error message from any response format
+    const extractErrorMessage = (error) => {
+        // Try to get JSON response
+        if (error.response?.data) {
+            // If it's a JSON object
+            if (typeof error.response.data === 'object') {
+                return error.response.data.message || error.response.data.error || 'Operation failed';
+            }
+            
+            // If it's a string (could be HTML or plain text)
+            if (typeof error.response.data === 'string') {
+                // Try to extract error message from HTML
+                const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
+                if (htmlMatch) {
+                    return htmlMatch[1].trim();
+                }
+                // Try to extract from pre tags
+                const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
+                if (preMatch) {
+                    return preMatch[1].trim();
+                }
+                // If it's a short string, return it directly
+                if (error.response.data.length < 200) {
+                    return error.response.data;
+                }
+            }
+        }
+        
+        // Fallback to error message
+        return error.message || 'Operation failed';
+    };
+
     useEffect(() => {
         if (classId) {
             fetchClassInfo();
@@ -54,7 +86,10 @@ const TeacherClassResults = () => {
         try {
             const res = await axios.get(`/api/v1/classes/${classId}`);
             setClassInfo(res.data.data);
-        } catch { /* silent */ }
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            console.error('Failed to fetch class info:', errorMsg);
+        }
     };
 
     const fetchResults = async () => {
@@ -64,14 +99,18 @@ const TeacherClassResults = () => {
                 ? `/api/v1/results/class/${classId}?semester=${semesterFilter}`
                 : `/api/v1/results/class/${classId}`;
             const res = await axios.get(url);
-            const enriched = res.data.data.map((r) => ({
+            const enriched = (res.data.data || []).map((r) => ({
                 ...r,
                 studentName: r.studentId?.studentName || '-',
                 rollNo: r.studentId?.rollNo || '-',
+                marks: r.marks || 0,
+                grade: r.grade || 'F',
             }));
             setResults(enriched);
-        } catch {
-            message.error('Failed to fetch results');
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
+            setResults([]);
         } finally {
             setLoading(false);
         }
@@ -94,7 +133,7 @@ const TeacherClassResults = () => {
     // Statistics
     const totalResults = results.length;
     const avgMarks = totalResults > 0
-        ? (results.reduce((s, r) => s + r.marks, 0) / totalResults).toFixed(1)
+        ? (results.reduce((s, r) => s + (r.marks || 0), 0) / totalResults).toFixed(1)
         : 0;
     const passCount = results.filter((r) => r.grade !== 'F').length;
     const failCount = results.filter((r) => r.grade === 'F').length;
@@ -169,7 +208,7 @@ const TeacherClassResults = () => {
                     </Space>
                 </Tooltip>
             ),
-            sorter: (a, b) => a.studentName.localeCompare(b.studentName),
+            sorter: (a, b) => (a.studentName || '').localeCompare(b.studentName || ''),
         },
         {
             title: 'Subject',
@@ -180,7 +219,7 @@ const TeacherClassResults = () => {
                     {subject}
                 </Tag>
             ),
-            sorter: (a, b) => a.subject.localeCompare(b.subject),
+            sorter: (a, b) => (a.subject || '').localeCompare(b.subject || ''),
         },
         {
             title: 'Marks',
@@ -200,7 +239,7 @@ const TeacherClassResults = () => {
                     </Space>
                 </Tooltip>
             ),
-            sorter: (a, b) => a.marks - b.marks,
+            sorter: (a, b) => (a.marks || 0) - (b.marks || 0),
         },
         {
             title: 'Grade',
@@ -210,7 +249,7 @@ const TeacherClassResults = () => {
                 <Tag 
                     color={GRADE_COLOR[grade] || 'default'}
                     style={{ 
-                        backgroundColor: GRADE_BG_COLOR[grade],
+                        backgroundColor: GRADE_BG_COLOR[grade] || '#fafafa',
                         fontWeight: 'bold',
                         fontSize: '14px',
                         padding: '4px 12px',
@@ -230,7 +269,7 @@ const TeacherClassResults = () => {
             render: (semester) => (
                 <Tag color="purple">{semester}</Tag>
             ),
-            sorter: (a, b) => a.semester.localeCompare(b.semester),
+            sorter: (a, b) => (a.semester || '').localeCompare(b.semester || ''),
         },
     ];
 
@@ -351,11 +390,11 @@ const TeacherClassResults = () => {
                                     size="small" 
                                     style={{ 
                                         textAlign: 'center',
-                                        backgroundColor: GRADE_BG_COLOR[grade],
-                                        borderLeft: `4px solid ${GRADE_COLOR[grade]}`
+                                        backgroundColor: GRADE_BG_COLOR[grade] || '#fafafa',
+                                        borderLeft: `4px solid ${GRADE_COLOR[grade] || '#8c8c8c'}`
                                     }}
                                 >
-                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: GRADE_COLOR[grade] }}>
+                                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: GRADE_COLOR[grade] || '#8c8c8c' }}>
                                         {grade}
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
