@@ -91,19 +91,38 @@ const ParentOverview = () => {
             }
         } catch { /* silent */ }
 
-        try {
-            // Academic warnings
-            const warnRes = await axios.get(`/api/v1/warnings/student/${studentId}`);
-            const warnings = warnRes.data.data;
-            newStats.warningCount = warnings.length;
-            warnings.forEach((w) => {
-                newAlerts.push({
-                    type: 'error',
-                    title: w.ruleViolated,
-                    description: w.detailDescription,
-                });
+try {
+    // Pending fees
+    const feeRes = await axios.get(`/api/v1/fees/student/${studentId}/pending`);
+    const pendingFees = feeRes.data.data;
+    
+    // Helper function to extract amount from MongoDB Decimal128
+    const getAmountValue = (amount) => {
+        if (typeof amount === 'number') return amount;
+        if (typeof amount === 'string') return parseFloat(amount);
+        if (amount && typeof amount === 'object') {
+            // Handle MongoDB Decimal128 format
+            if (amount.$numberDecimal) return parseFloat(amount.$numberDecimal);
+            // Handle other possible formats
+            if (amount.value) return parseFloat(amount.value);
+        }
+        return 0;
+    };
+    
+    const total = pendingFees.reduce((s, f) => s + getAmountValue(f.amount), 0);
+    newStats.pendingFees = total;
+
+    pendingFees.forEach((f) => {
+        const feeAmount = getAmountValue(f.amount);
+        if (f.dueDate && dayjs().isAfter(dayjs(f.dueDate), 'day')) {
+            newAlerts.push({
+                type: 'error',
+                title: 'Fee overdue',
+                description: `${f.feeType} (Rs ${feeAmount.toLocaleString()}) was due on ${dayjs(f.dueDate).format('YYYY-MM-DD')}.`,
             });
-        } catch { /* silent */ }
+        }
+    });
+} catch { /* silent */ }
 
         setAlerts(newAlerts);
         setStats(newStats);
