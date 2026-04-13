@@ -47,37 +47,38 @@ const Teachers = () => {
     }, []);
 
     const fetchTeachers = async () => {
-        setLoading(true);
-        try {
-            const res = await axios.get('/api/v1/teachers/');
-            const teachersData = res.data.data?.teachers || res.data.data || [];
-            
-            const formattedTeachers = teachersData.map((teacher) => ({
-                key: teacher._id,
-                _id: teacher._id,
-                name: teacher.name || '',
-                contactNumber: teacher.contactNumber || '',
-                email: teacher.userId?.email || '',
-                subject: teacher.subject || '',
-                dateOfJoining: teacher.dateOfJoining || '',
-                cnicNumber: teacher.cnicNumber || '',
-                address: teacher.address || '',
-                status: teacher.userId?.status || 'ACTIVE',
-                userId: teacher.userId,
-                createdAt: teacher.createdAt,
-                updatedAt: teacher.updatedAt,
-            }));
-            
-            setTeachers(formattedTeachers);
-        } catch (err) {
-            const errorMsg = extractErrorMessage(err);
-            console.error('Error fetching teachers:', errorMsg);
-            message.error(errorMsg);
-            setTeachers([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+    setLoading(true);
+    try {
+        const res = await axios.get('/api/v1/teachers/');
+        const teachersData = res.data.data?.teachers || res.data.data || [];
+        
+        const formattedTeachers = teachersData.map((teacher) => ({
+            key: teacher._id,
+            _id: teacher._id,
+            name: teacher.name || '',
+            contactNumber: teacher.contactNumber || '',
+            email: teacher.userId?.email || '',
+            subject: teacher.subject || '',
+            dateOfJoining: teacher.dateOfJoining || '',
+            cnicNumber: teacher.cnicNumber || '',
+            address: teacher.address || '',
+            // FIX: Check teacher.status first, then fallback to userId.status
+            status: teacher.status || teacher.userId?.status || 'ACTIVE',
+            userId: teacher.userId,
+            createdAt: teacher.createdAt,
+            updatedAt: teacher.updatedAt,
+        }));
+        
+        setTeachers(formattedTeachers);
+    } catch (err) {
+        const errorMsg = extractErrorMessage(err);
+        console.error('Error fetching teachers:', errorMsg);
+        message.error(errorMsg);
+        setTeachers([]);
+    } finally {
+        setLoading(false);
+    }
+};
 
     // Filter teachers based on search
     const filteredTeachers = useMemo(() => {

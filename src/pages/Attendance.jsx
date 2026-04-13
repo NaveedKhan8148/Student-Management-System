@@ -56,33 +56,18 @@ const Attendance = () => {
 
     // Helper function to extract error message from any response format
     const extractErrorMessage = (error) => {
-        // Try to get JSON response
         if (error.response?.data) {
-            // If it's a JSON object
             if (typeof error.response.data === 'object') {
                 return error.response.data.message || error.response.data.error || 'Operation failed';
             }
-            
-            // If it's a string (could be HTML or plain text)
             if (typeof error.response.data === 'string') {
-                // Try to extract error message from HTML
                 const htmlMatch = error.response.data.match(/Error:\s*([^<]+)/);
-                if (htmlMatch) {
-                    return htmlMatch[1].trim();
-                }
-                // Try to extract from pre tags
+                if (htmlMatch) return htmlMatch[1].trim();
                 const preMatch = error.response.data.match(/<pre>Error:\s*([^<]+)<\/pre>/);
-                if (preMatch) {
-                    return preMatch[1].trim();
-                }
-                // If it's a short string, return it directly
-                if (error.response.data.length < 200) {
-                    return error.response.data;
-                }
+                if (preMatch) return preMatch[1].trim();
+                if (error.response.data.length < 200) return error.response.data;
             }
         }
-        
-        // Fallback to error message
         return error.message || 'Operation failed';
     };
 
@@ -102,10 +87,10 @@ const Attendance = () => {
     }, [selectedClass]);
 
     useEffect(() => {
-        if (selectedClass) {
+        if (selectedClass && students.length > 0) {
             fetchExistingAttendance(selectedClass, selectedDate);
         }
-    }, [selectedClass, selectedDate]);
+    }, [selectedClass, selectedDate, students]);
 
     useEffect(() => {
         if (analyticsClass) {
@@ -144,6 +129,8 @@ const Attendance = () => {
     };
 
     const fetchExistingAttendance = async (classId, date) => {
+        if (!classId || students.length === 0) return;
+        
         try {
             const dateStr = date.format('YYYY-MM-DD');
             const res = await axios.get(
@@ -269,21 +256,29 @@ const Attendance = () => {
                 }
             });
 
+            // Save new records
             if (toCreate.length > 0) {
                 await axios.post('/api/v1/attendance/bulk', { records: toCreate });
             }
 
-            await Promise.all(
-                toUpdate.map((r) =>
-                    axios.patch(`/api/v1/attendance/${r.id}`, { status: r.status })
-                )
-            );
+            // Update existing records
+            if (toUpdate.length > 0) {
+                await Promise.all(
+                    toUpdate.map((r) =>
+                        axios.patch(`/api/v1/attendance/${r.id}`, { status: r.status })
+                    )
+                );
+            }
 
             message.success(`Attendance saved for ${dateStr}`);
-            fetchExistingAttendance(selectedClass, selectedDate);
+            
+            // Refresh attendance data after save
+            await fetchExistingAttendance(selectedClass, selectedDate);
+            
         } catch (err) {
             const errorMsg = extractErrorMessage(err);
             message.error(errorMsg);
+            console.error('Save error:', err);
         } finally {
             setSaving(false);
         }
