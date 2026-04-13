@@ -12,7 +12,7 @@ const homePath = (role) => {
         case 'ADMIN':   return '/dashboard';
         case 'TEACHER': return '/teacher/classes';
         case 'PARENT':  return '/parent/overview';
-        case 'STUDENT': return '/student/timetable';
+        case 'STUDENT': return '/student/profile';
         default:        return '/login';
     }
 };

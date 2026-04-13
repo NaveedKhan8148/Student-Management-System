@@ -47,7 +47,7 @@ const RoleBasedRedirect = () => {
         if (!loading && user) {
             const role = user.role?.toUpperCase();
             let redirectPath = '/dashboard';
-            if (role === 'STUDENT') redirectPath = '/student/timetable';
+            if (role === 'STUDENT') redirectPath = '/student/profile'; // ← changed
             else if (role === 'TEACHER') redirectPath = '/teacher/classes';
             else if (role === 'PARENT') redirectPath = '/parent/overview';
             navigate(redirectPath, { replace: true });
@@ -89,7 +89,7 @@ const AppRoutes = () => {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<RoleBasedRedirect />} />
 
-            {/* Admin — role stored as ADMIN in DB */}
+            {/* Admin */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']}><MainLayout /></ProtectedRoute>}>
                 <Route path="dashboard"  element={<Dashboard />} />
                 <Route path="students"   element={<Students />} />
@@ -104,19 +104,18 @@ const AppRoutes = () => {
                 <Route path="approvals"  element={<ApprovalWorkflows />} />
             </Route>
 
-            {/* Teacher — role stored as TEACHER in DB */}
+            {/* Teacher */}
             <Route element={<ProtectedRoute allowedRoles={['TEACHER']}><TeacherLayout /></ProtectedRoute>}>
                 <Route path="teacher" element={<Navigate to="/teacher/classes" replace />} />
                 <Route path="teacher/classes" element={<TeacherClasses />} />
-                {/* ✅ using :classId (MongoDB _id) instead of :classKey */}
                 <Route path="teacher/classes/:classId/attendance" element={<TeacherClassAttendance />} />
                 <Route path="teacher/classes/:classId/results"    element={<TeacherClassResults />} />
                 <Route path="teacher/classes/:classId/timetable"  element={<TeacherClassTimetable />} />
             </Route>
 
-            {/* Student — role stored as STUDENT in DB */}
+            {/* Student */}
             <Route element={<ProtectedRoute allowedRoles={['STUDENT']}><StudentLayout /></ProtectedRoute>}>
-                <Route path="student" element={<Navigate to="/student/timetable" replace />} />
+                <Route path="student" element={<Navigate to="/student/profile" replace />} />
                 <Route path="student/profile"    element={<StudentProfile />} />
                 <Route path="student/timetable"  element={<StudentTimetable />} />
                 <Route path="student/attendance" element={<StudentAttendance />} />
@@ -125,7 +124,7 @@ const AppRoutes = () => {
                 <Route path="student/news"       element={<StudentNews />} />
             </Route>
 
-            {/* Parent — role stored as PARENT in DB */}
+            {/* Parent */}
             <Route element={<ProtectedRoute allowedRoles={['PARENT']}><ParentLayout /></ProtectedRoute>}>
                 <Route path="parent" element={<Navigate to="/parent/overview" replace />} />
                 <Route path="parent/overview"    element={<ParentOverview />} />
