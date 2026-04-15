@@ -29,6 +29,23 @@ export const AuthProvider = ({ children }) => {
         } else {
             setLoading(false);
         }
+
+        // Add response interceptor to handle token expiration
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 401) {
+                    // Token expired or invalid, force logout
+                    logout(true);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        // Cleanup interceptor on unmount
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        };
     }, []);
 
     const fetchProfile = async (role) => {
@@ -75,10 +92,12 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = async () => {
-        try {
-            await axios.post('/api/v1/users/logout');
-        } catch (_) {}
+    const logout = async (skipApiCall = false) => {
+        if (!skipApiCall) {
+            try {
+                await axios.post('/api/v1/users/logout');
+            } catch (_) { }
+        }
 
         setUser(null);
         setProfile(null);
@@ -87,6 +106,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         delete axios.defaults.headers.common['Authorization'];
+
+        if (skipApiCall) {
+            window.location.href = '/login';
+        }
     };
 
     return (
