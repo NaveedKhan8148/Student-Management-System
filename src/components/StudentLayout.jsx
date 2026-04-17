@@ -46,7 +46,7 @@ const StudentLayout = () => {
         { key: '/student/attendance', icon: <FileDoneOutlined />, label: 'Attendance' },
         { key: '/student/fees', icon: <DollarOutlined />, label: 'Fees' },
         { key: '/student/results', icon: <ReadOutlined />, label: 'Results & grades' },
-        { key: '/student/news', icon: <NotificationOutlined />, label: 'News' },
+        // { key: '/student/news', icon: <NotificationOutlined />, label: 'News' }, TODO: Add news page later
     ];
 
     return (

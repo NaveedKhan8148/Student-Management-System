@@ -474,6 +474,7 @@ const Teachers = () => {
                     layout="vertical"
                     onFinish={handleSave}
                     form={form}
+                    autoComplete='off'
                     initialValues={{
                         status: 'ACTIVE',
                     }}
@@ -503,6 +504,7 @@ const Teachers = () => {
                             placeholder="teacher@school.edu" 
                             size="large"
                             prefix={<MailOutlined style={{ color: '#8c8c8c' }} />}
+                            autoComplete="new-email"
                         />
                     </Form.Item>
 
@@ -516,7 +518,11 @@ const Teachers = () => {
                             ]}
                             extra="Minimum 6 characters"
                         >
-                            <Input.Password placeholder="Enter login password" size="large" />
+                            <Input.Password 
+                            placeholder="Enter login password" 
+                            size="large"
+                            autoComplete='new-password'
+                            />
                         </Form.Item>
                     )}
 

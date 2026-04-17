@@ -487,7 +487,7 @@ const Parents = () => {
                 width={550}
                 destroyOnClose
             >
-                <Form layout="vertical" onFinish={handleSave} form={form}>
+                <Form layout="vertical" onFinish={handleSave} form={form} autoComplete="off">
                     <Form.Item
                         name="name"
                         label="Parent Name"
@@ -532,6 +532,7 @@ const Parents = () => {
                                     placeholder="parent@example.com" 
                                     size="large"
                                     prefix={<MailOutlined style={{ color: '#8c8c8c' }} />}
+                                    autoComplete='new-email'
                                 />
                             </Form.Item>
 
@@ -546,6 +547,7 @@ const Parents = () => {
                                 <Input.Password 
                                     placeholder="Temporary password" 
                                     size="large"
+                                    autoComplete='new-password'
                                 />
                             </Form.Item>
                         </>

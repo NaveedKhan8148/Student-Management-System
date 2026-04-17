@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Col, Row, Typography, Spin, Statistic, Button, Space, Tooltip, Badge } from 'antd';
+import { Card, Col, Row, Typography, Spin, Statistic, Button, Space, Tooltip, Badge, Modal, Form, Input, Select, message } from 'antd';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
     Legend, ResponsiveContainer, LineChart, Line,
@@ -9,7 +9,8 @@ import {
     ReloadOutlined, TeamOutlined, BookOutlined,
     DollarOutlined, WarningOutlined, UserOutlined,
     RiseOutlined, FallOutlined, TrophyOutlined,
-    CheckCircleOutlined, CloseCircleOutlined
+    CheckCircleOutlined, CloseCircleOutlined,
+    PlusOutlined, MailOutlined, LockOutlined, SaveOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -122,9 +123,32 @@ const Dashboard = () => {
     const [loadingDistribution, setLoadingDistribution] = useState(false);
     const [loadingStats, setLoadingStats] = useState(false);
 
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [form] = Form.useForm();
+
     useEffect(() => {
         fetchAll();
     }, []);
+
+    const handleAddUser = async (values) => {
+        setSubmitLoading(true);
+        try {
+            await axios.post('/api/v1/users/register', {
+                email: values.email,
+                password: values.password,
+                role: values.role
+            });
+            message.success('User created successfully');
+            setIsModalVisible(false);
+            form.resetFields();
+        } catch (err) {
+            const errorMsg = extractErrorMessage(err);
+            message.error(errorMsg);
+        } finally {
+            setSubmitLoading(false);
+        }
+    };
 
     const fetchAll = () => {
         fetchAttendance();
@@ -276,14 +300,25 @@ const Dashboard = () => {
                         Institutional summaries for decision support — live data
                     </Text>
                 </div>
-                <Button 
-                    type="primary" 
-                    icon={<ReloadOutlined />} 
-                    onClick={fetchAll}
-                    size="large"
-                >
-                    Refresh All
-                </Button>
+                <Space>
+                    <Button 
+                        type="primary" 
+                        icon={<PlusOutlined />} 
+                        onClick={() => setIsModalVisible(true)}
+                        size="large"
+                        style={{ backgroundColor: '#52c41a' }}
+                    >
+                        Add User Role
+                    </Button>
+                    <Button 
+                        type="primary" 
+                        icon={<ReloadOutlined />} 
+                        onClick={fetchAll}
+                        size="large"
+                    >
+                        Refresh All
+                    </Button>
+                </Space>
             </div>
 
             {/* Summary Stats Cards */}
@@ -424,6 +459,84 @@ const Dashboard = () => {
                     </ChartCard>
                 </Col>
             </Row>
+
+            {/* Add User Role Modal */}
+            <Modal
+                title={
+                    <Space>
+                        <UserOutlined style={{ color: '#1890ff' }} />
+                        <span>Add User Role</span>
+                    </Space>
+                }
+                open={isModalVisible}
+                onCancel={() => {
+                    setIsModalVisible(false);
+                    form.resetFields();
+                }}
+                footer={null}
+                width={500}
+                destroyOnClose
+            >
+                <Form layout="vertical" onFinish={handleAddUser} form={form} autoComplete="off">
+                    <Form.Item
+                        name="email"
+                        label="Email"
+                        rules={[
+                            { required: true, message: 'Please enter email' },
+                            { type: 'email', message: 'Please enter a valid email' },
+                        ]}
+                    >
+                        <Input 
+                            placeholder="e.g. admin@school.edu" 
+                            size="large"
+                            prefix={<MailOutlined style={{ color: '#8c8c8c' }} />}
+                            autoComplete="new-email"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="password"
+                        label="Password"
+                        rules={[
+                            { required: true, message: 'Please enter a password' },
+                            { min: 6, message: 'Password must be at least 6 characters' }
+                        ]}
+                    >
+                        <Input.Password 
+                            placeholder="Enter password" 
+                            size="large"
+                            prefix={<LockOutlined style={{ color: '#8c8c8c' }} />}
+                            autoComplete="new-password"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="role"
+                        label="Role"
+                        rules={[{ required: true, message: 'Please select a role' }]}
+                    >
+                        <Select placeholder="Select a role" size="large">
+                            <Select.Option value="ADMIN">ADMIN</Select.Option>
+                            <Select.Option value="STUDENT">STUDENT</Select.Option>
+                            <Select.Option value="TEACHER">TEACHER</Select.Option>
+                            <Select.Option value="PARENT">PARENT</Select.Option>
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            block
+                            loading={submitLoading}
+                            size="large"
+                            icon={<SaveOutlined />}
+                        >
+                            Create User
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </div>
     );
 };

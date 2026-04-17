@@ -469,7 +469,7 @@ const Students = () => {
                 width={600}
                 destroyOnClose
             >
-                <Form layout="vertical" onFinish={handleSave} form={form}>
+                <Form layout="vertical" onFinish={handleSave} form={form} autoComplete="off">
                     <Form.Item
                         name="rollNo"
                         label="Roll Number"
@@ -491,6 +491,7 @@ const Students = () => {
                             placeholder="Enter full name" 
                             size="large"
                             prefix={<UserOutlined style={{ color: '#8c8c8c' }} />}
+                            autoComplete="new-name"
                         />
                     </Form.Item>
 
@@ -508,6 +509,7 @@ const Students = () => {
                                     placeholder="student@school.edu" 
                                     size="large"
                                     prefix={<MailOutlined style={{ color: '#8c8c8c' }} />}
+                                    autoComplete="new-email"
                                 />
                             </Form.Item>
 
@@ -519,7 +521,9 @@ const Students = () => {
                                     { min: 6, message: 'Password must be at least 6 characters' }
                                 ]}
                             >
-                                <Input.Password placeholder="Temporary password" size="large" />
+                                <Input.Password placeholder="Temporary password" size="large"
+                                autoComplete='new-password'
+                                />
                             </Form.Item>
                         </>
                     )}
